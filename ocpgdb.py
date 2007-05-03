@@ -1,4 +1,4 @@
-from ocpgdb.oclibpq import *
+from oclibpq import *
 
 apilevel = '2.0'
 threadsafety = 1

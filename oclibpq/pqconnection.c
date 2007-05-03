@@ -1,30 +1,16 @@
 /* vi:set sw=8 ts=8 noet showmode ai: */
 
-#include <Python.h>
-#include <structmember.h>
 #include "oclibpq.h"
 
-static PyObject *
-PQConnection_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
-{
-	PQConnection *self;
-
-	self = (PQConnection *)type->tp_alloc(type, 0);
-	if (self == NULL)
-		return NULL;
-
-	self->connection = NULL;
-
-	return (PyObject *)self;
-}
-
 static int
-set_member(PyObject **member, const char *fmt, char *value)
+set_str(PyObject **member, char *value)
 {
-	if (value == NULL || *value == '\0')
-		fmt = "";
-	*member = Py_BuildValue(fmt, value);
-	if (*member == NULL)
+	if (value == NULL || *value == '\0') {
+		Py_INCREF(Py_None);
+		*member = Py_None;
+		return 0;
+	}
+	if ((*member = PyString_FromString(value)) == NULL)
 		return -1;
 	return 0;
 }
@@ -61,34 +47,54 @@ PQConnection_init(PyObject *o, PyObject *args, PyObject *kwds)
 	}
 
 	self->connection = cnx;
-	if (set_member(&self->conninfo, "s", conninfo) < 0)
+	if (set_str(&self->conninfo, conninfo) < 0)
 		return -1;
-	if (set_member(&self->host, "s", PQhost(cnx)) < 0)
+	if (set_str(&self->host, PQhost(cnx)) < 0)
 		return -1;
-	if (set_member(&self->port, "b", PQport(cnx)) < 0)
+	if ((self->port = PyInt_FromString(PQport(cnx), NULL, 10)) == NULL)
 		return -1;
-	if (set_member(&self->db, "s", PQdb(cnx)) < 0)
+	if (set_str(&self->db, PQdb(cnx)) < 0)
 		return -1;
-	if (set_member(&self->tty, "s", PQtty(cnx)) < 0)
+	if (set_str(&self->tty, PQtty(cnx)) < 0)
 		return -1;
-	if (set_member(&self->user, "s", PQuser(cnx)) < 0)
+	if (set_str(&self->user, PQuser(cnx)) < 0)
 		return -1;
-	if (set_member(&self->password, "s", PQpass(cnx)) < 0)
+	if (set_str(&self->password, PQpass(cnx)) < 0)
 		return -1;
-	if (set_member(&self->options, "s", PQoptions(cnx)) < 0)
+	if (set_str(&self->options, PQoptions(cnx)) < 0)
 		return -1;
-	if ((self->socket = Py_BuildValue("i", PQsocket(cnx))) == NULL)
+	if ((self->socket = PyInt_FromLong(PQsocket(cnx))) == NULL)
+		return -1;
+	if ((self->protocolVersion = PyInt_FromLong(PQprotocolVersion(cnx))) == NULL)
+		return -1;
+	if ((self->serverVersion = PyInt_FromLong(PQserverVersion(cnx))) == NULL)
 		return -1;
 	return 0;
 }
 
+static int
+PQConnection_traverse(PyObject *o, visitproc visit, void *arg)
+{
+	PQConnection *self = (PQConnection *)o;
+	Py_VISIT(self->notices);
+	return 0;
+}
+
+static int
+PQConnection_clear(PyObject *o)
+{
+	PQConnection *self = (PQConnection *)o;
+	Py_CLEAR(self->notices);
+	return 0;
+}
 
 static void
 PQConnection_dealloc(PyObject *o)
 {
-	PQConnection	*self = (PQConnection *)o;
-	PGconn		*cnx = self->connection;
+	PQConnection *self = (PQConnection *)o;
+	PGconn *cnx = self->connection;
 
+	PyObject_GC_UnTrack(o);
 	if (cnx != NULL) {
 		self->connection = NULL;
 		Py_BEGIN_ALLOW_THREADS
@@ -104,7 +110,8 @@ PQConnection_dealloc(PyObject *o)
 	Py_XDECREF(self->password);
 	Py_XDECREF(self->options);
 	Py_XDECREF(self->socket);
-	Py_XDECREF(self->notices);
+	Py_XDECREF(self->protocolVersion);
+	Py_XDECREF(self->serverVersion);
 	o->ob_type->tp_free(o);
 }
 
@@ -115,6 +122,7 @@ static PyMethodDef PQConnection_methods[] = {
 
 #define PQC_MO(m) offsetof(PQConnection, m)
 static PyMemberDef PQConnection_members[] = {
+	{"conninfo",	T_OBJECT,	PQC_MO(conninfo),	RO },
 	{"host",	T_OBJECT,	PQC_MO(host),		RO },
 	{"port",	T_OBJECT,	PQC_MO(port),		RO },
 	{"db",		T_OBJECT,	PQC_MO(db),		RO },
@@ -122,6 +130,8 @@ static PyMemberDef PQConnection_members[] = {
 	{"user",	T_OBJECT,	PQC_MO(user),		RO },
 	{"password",	T_OBJECT,	PQC_MO(password),	RO },
 	{"socket",	T_OBJECT,	PQC_MO(socket),		RO },
+	{"protocolVersion", T_OBJECT,	PQC_MO(protocolVersion),RO },
+	{"serverVersion", T_OBJECT,	PQC_MO(serverVersion),	RO },
 	{"notices",	T_OBJECT,	PQC_MO(notices),	RO },
 	{NULL}
 };
@@ -149,10 +159,11 @@ static PyTypeObject PQConnection_Type = {
 	0,					/* tp_getattro */
 	0,					/* tp_setattro */
 	0,					/* tp_as_buffer */
-	Py_TPFLAGS_DEFAULT,			/* tp_flags */
+	Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HAVE_GC,
+						/* tp_flags */
 	PQConnection_doc,			/* tp_doc */
-	0,					/* tp_traverse */
-	0,					/* tp_clear */
+	PQConnection_traverse,			/* tp_traverse */
+	PQConnection_clear,			/* tp_clear */
 	0,					/* tp_richcompare */
 	0,					/* tp_weaklistoffset */
 	0,					/* tp_iter */
@@ -166,9 +177,9 @@ static PyTypeObject PQConnection_Type = {
 	0,					/* tp_descr_set */
 	0,					/* tp_dictoffset */
 	PQConnection_init,			/* tp_init */
-	0,					/* tp_alloc */
-	PQConnection_new,			/* tp_new */
-	0,					/* tp_free */
+	PyType_GenericAlloc,			/* tp_alloc */
+	PyType_GenericNew,			/* tp_new */
+	PyObject_GC_Del,			/* tp_free */
 };
 
 void

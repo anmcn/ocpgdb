@@ -46,7 +46,7 @@ libraries = [
 # distutils declarations
 
 oclibpq_module = Extension(
-    'ocpgdb.oclibpq', sources,
+    'oclibpq', sources,
     define_macros=defines,
     include_dirs=includes,
     library_dirs=library_dirs,

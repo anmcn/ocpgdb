@@ -1,6 +1,10 @@
 /* vi:set sw=8 ts=8 noet showmode ai: */
 
+/* Python */
 #include <Python.h>
+#include <structmember.h>
+
+/* PostgreSQL */
 #include <libpq-fe.h>
 #include <libpq/libpq-fs.h>
 
@@ -18,6 +22,8 @@ typedef struct {
 	PyObject 	*password;
 	PyObject 	*options;
 	PyObject 	*socket;
+	PyObject 	*protocolVersion;
+	PyObject 	*serverVersion;
 	PyObject 	*notices;
 } PQConnection;
 
