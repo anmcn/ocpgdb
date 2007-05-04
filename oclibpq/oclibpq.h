@@ -9,6 +9,14 @@
 #include <libpq/libpq-fs.h>
 
 #define MODULE_NAME "oclibpq"
+
+enum result_type {
+	RESULT_DQL,
+	RESULT_DDL,
+	RESULT_DML,
+	RESULT_EMPTY,
+};
+
 typedef struct {
 	PyObject_HEAD
 	PGconn		*connection;
@@ -18,16 +26,10 @@ typedef struct {
 
 typedef struct {
 	PyObject_HEAD
-	PGresult	*result;
 	PyPgConnection	*connection;
+	PGresult	*result;
+	enum result_type type;
 } PyPgResult;
-
-enum result_type {
-	RESULT_DQL,
-	RESULT_DDL,
-	RESULT_DML,
-	RESULT_EMPTY,
-};
 
 extern PyObject *PqErr_Warning;
 extern PyObject *PqErr_Error;

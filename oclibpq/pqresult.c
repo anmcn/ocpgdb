@@ -18,6 +18,79 @@ PyPgResult_dealloc(PyObject *o)
 }
 
 
+static PyObject *
+get_type(PyPgResult *self)
+{
+	char *type_str;
+
+	switch (self->type) {
+	case RESULT_DQL:	type_str = "DQL"; break;
+	case RESULT_DDL:	type_str = "DDL"; break;
+	case RESULT_DML:	type_str = "DML"; break;
+	case RESULT_EMPTY:	type_str = "EMPTY"; break;
+	default:
+		PyErr_Format(PqErr_InternalError, 
+		 	"Unknown query type: %d", self->type);
+		return NULL;
+	}
+	return PyString_FromString(type_str);
+}
+
+static PyObject *
+get_status(PyPgResult *self)
+{
+	return PyInt_FromLong(PQresultStatus(self->result));
+}
+
+static PyObject *
+get_ntuples(PyPgResult *self)
+{
+	return PyInt_FromLong(PQntuples(self->result));
+}
+
+static PyObject *
+get_nfields(PyPgResult *self)
+{
+	return PyInt_FromLong(PQnfields(self->result));
+}
+
+static PyObject *
+get_binaryTuples(PyPgResult *self)
+{
+	return PyInt_FromLong(PQbinaryTuples(self->result));
+}
+
+static PyObject *
+get_cmdStatus(PyPgResult *self)
+{
+	const char *cmdStatus = PQcmdStatus(self->result);
+	if (cmdStatus)
+		return PyString_FromString(cmdStatus);
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
+static PyObject *
+get_cmdTuples(PyPgResult *self)
+{
+	char *cmdTuples = PQcmdTuples(self->result);
+	if (cmdTuples && *cmdTuples)
+		return PyInt_FromString(cmdTuples, NULL, 10);
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
+static PyObject *
+get_oid(PyPgResult *self)
+{
+	long oid = PQoidValue(self->result);
+	if (oid != InvalidOid)
+		return PyInt_FromLong(oid);
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
+
 static PyMethodDef PyPgResult_methods[] = {
 	{NULL, NULL}
 };
@@ -27,6 +100,14 @@ static PyMemberDef PyPgResult_members[] = {
 };
 
 static PyGetSetDef PyPgResult_getset[] = {
+	{"type",		(getter)get_type},
+	{"status",		(getter)get_status},
+	{"ntuples",		(getter)get_ntuples},
+	{"nfields",		(getter)get_nfields},
+	{"binaryTuples",	(getter)get_binaryTuples},
+	{"cmdStatus",		(getter)get_cmdStatus},
+	{"cmdTuples",		(getter)get_cmdTuples},
+	{"oid",			(getter)get_oid},
 	{NULL}
 };
 
@@ -148,6 +229,7 @@ PyPgResult_New(PyPgConnection *connection, PGresult *result)
 	Py_INCREF(connection);
 	self->connection = connection;
 	self->result = result;
+	self->type = result_type;
 
 	return (PyObject *)self;
 }
