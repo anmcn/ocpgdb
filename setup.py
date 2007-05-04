@@ -58,6 +58,7 @@ setup(
     author_email=AUTHOR[1],
     description=DESCRIPTION,
     download_url=DOWNLOAD,
+    py_modules = ['ocpgdb'],
     ext_modules = [oclibpq_module],
     license='BSD',
     long_description=DESCRIPTION,

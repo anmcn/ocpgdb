@@ -3,6 +3,17 @@
 #include "oclibpq.h"
 
 static int
+_PQC_not_open(PQConnection *self)
+{
+	if (self->connection == NULL) {
+		PyErr_SetString(PqErr_ProgrammingError, 
+				"Database connection not open");
+		return 1;
+	}
+	return 0;
+}
+
+static int
 PQConnection_init(PyObject *o, PyObject *args, PyObject *kwds)
 {
 	PQConnection *self = (PQConnection *)o;
@@ -58,85 +69,112 @@ PQConnection_clear(PyObject *o)
 }
 
 static void
-PQConnection_dealloc(PyObject *o)
+_PQC_finish(PQConnection *self)
 {
-	PQConnection *self = (PQConnection *)o;
 	PGconn *cnx = self->connection;
-
-	PyObject_GC_UnTrack(o);
 	if (cnx != NULL) {
 		self->connection = NULL;
 		Py_BEGIN_ALLOW_THREADS
 		PQfinish(cnx);
 		Py_END_ALLOW_THREADS
 	}
+}
+
+static void
+PQConnection_dealloc(PyObject *o)
+{
+	PQConnection *self = (PQConnection *)o;
+
+	PyObject_GC_UnTrack(o);
+	_PQC_finish(self);
 	Py_XDECREF(self->conninfo);
 	Py_XDECREF(self->notices);
 	o->ob_type->tp_free(o);
 }
 
 static PyObject *
+PQConnection_close(PQConnection *self, PyObject *unused) 
+{
+	_PQC_finish(self);
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
+static PyObject *
 PQC_get_host(PQConnection *self)
 {
-	const char *host = PQhost(self->connection);
+	const char *host;
+	if (_PQC_not_open(self)) return NULL;
+	host = PQhost(self->connection);
 	return PyString_FromString((host && *host) ? host : "localhost");
 }
 
 static PyObject *
 PQC_get_port(PQConnection *self)
 {
+	if (_PQC_not_open(self)) return NULL;
 	return PyInt_FromString(PQport(self->connection), NULL, 10);
 }
 
 static PyObject *
 PQC_get_db(PQConnection *self)
 {
+	if (_PQC_not_open(self)) return NULL;
 	return PyString_FromString(PQdb(self->connection));
 }
 
 static PyObject *
 PQC_get_tty(PQConnection *self)
 {
+	if (_PQC_not_open(self)) return NULL;
 	return PyString_FromString(PQtty(self->connection));
 }
 
 static PyObject *
 PQC_get_user(PQConnection *self)
 {
+	if (_PQC_not_open(self)) return NULL;
 	return PyString_FromString(PQuser(self->connection));
 }
 
 static PyObject *
 PQC_get_password(PQConnection *self)
 {
+	if (_PQC_not_open(self)) return NULL;
 	return PyString_FromString(PQpass(self->connection));
 }
 
 static PyObject *
 PQC_get_options(PQConnection *self)
 {
+	if (_PQC_not_open(self)) return NULL;
 	return PyString_FromString(PQoptions(self->connection));
 }
 
 static PyObject *
 PQC_get_socket(PQConnection *self)
 {
+	if (_PQC_not_open(self)) return NULL;
 	return PyInt_FromLong(PQsocket(self->connection));
 }
 
 static PyObject *
 PQC_get_protocolVersion(PQConnection *self)
 {
+	if (_PQC_not_open(self)) return NULL;
 	return PyInt_FromLong(PQprotocolVersion(self->connection));
 }
 
 static PyObject *
 PQC_get_serverVersion(PQConnection *self)
 {
+	if (_PQC_not_open(self)) return NULL;
 	return PyInt_FromLong(PQserverVersion(self->connection));
 }
 
 static PyMethodDef PQConnection_methods[] = {
+	{"close", (PyCFunction)PQConnection_close, METH_NOARGS,
+		PyDoc_STR("Close the connection")},
 	{NULL, NULL}
 };
 
@@ -148,15 +186,16 @@ static PyMemberDef PQConnection_members[] = {
 };
 
 static PyGetSetDef PQConnection_getset[] = {
-	{"host",	(getter)PQC_get_host},
-	{"port",	(getter)PQC_get_port},
-	{"db",		(getter)PQC_get_db},
-	{"tty",		(getter)PQC_get_tty},
-	{"user",	(getter)PQC_get_user},
-	{"socket",	(getter)PQC_get_socket},
-	{"protocolVersion", (getter)PQC_get_protocolVersion},
-	{"serverVersion", (getter)PQC_get_serverVersion},
-	{"password",	(getter)PQC_get_password},
+	{"host",		(getter)PQC_get_host},
+	{"port",		(getter)PQC_get_port},
+	{"db",			(getter)PQC_get_db},
+	{"tty",			(getter)PQC_get_tty},
+	{"user",		(getter)PQC_get_user},
+	{"password",		(getter)PQC_get_password},
+	{"options",		(getter)PQC_get_options},
+	{"socket",		(getter)PQC_get_socket},
+	{"protocolVersion",	(getter)PQC_get_protocolVersion},
+	{"serverVersion",	(getter)PQC_get_serverVersion},
 	{NULL}
 };
 

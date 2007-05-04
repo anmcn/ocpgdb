@@ -19,9 +19,10 @@ class Cursor:
         self.pqconnection.close()
 
 
-class Connection:
+class Connection(PQConnection):
     def __init__(self, *args, **kwargs):
-        self.pqconnection = PQconnectdb(*args, **kwargs)
+        conninfo = ','.join(['%s=%s' % i for i in kwargs.items()])
+        PQConnection.__init__(self, conninfo)
 
     def cursor(self):
         return OCcursor(self.pqconnection)
