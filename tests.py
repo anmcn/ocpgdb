@@ -25,6 +25,7 @@ class BasicTests(unittest.TestCase):
 
     def test_connect(self):
         c = ocpgdb.connect(**scratch_db)
+        self.failUnless(c.fileno() >= 0)
         self.failUnless(isinstance(c.conninfo, str))
         self.assertEqual(c.notices, [])
         self.failUnless(isinstance(c.host, str))
@@ -33,7 +34,6 @@ class BasicTests(unittest.TestCase):
         self.failUnless(isinstance(c.user, str))
         self.failUnless(isinstance(c.password, str))
         self.failUnless(isinstance(c.options, str))
-        self.failUnless(isinstance(c.socket, int))
         self.failUnless(isinstance(c.protocolVersion, int))
         self.failUnless(c.protocolVersion >= 2)
         self.failUnless(isinstance(c.serverVersion, int))
@@ -45,7 +45,7 @@ class BasicTests(unittest.TestCase):
         self.assertRaises(ocpgdb.ProgrammingError, getattr, c, 'user')
         self.assertRaises(ocpgdb.ProgrammingError, getattr, c, 'password')
         self.assertRaises(ocpgdb.ProgrammingError, getattr, c, 'options')
-        self.assertRaises(ocpgdb.ProgrammingError, getattr, c, 'socket')
+        self.assertRaises(ocpgdb.ProgrammingError, c.fileno)
         self.assertRaises(ocpgdb.ProgrammingError, getattr, c, 'protocolVersion')
         self.assertRaises(ocpgdb.ProgrammingError, getattr, c, 'serverVersion')
         c.close()

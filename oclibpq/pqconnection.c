@@ -101,6 +101,13 @@ PQConnection_close(PQConnection *self, PyObject *unused)
 }
 
 static PyObject *
+PQConnection_fileno(PQConnection *self, PyObject *unused)
+{
+	if (_PQC_not_open(self)) return NULL;
+	return PyInt_FromLong(PQsocket(self->connection));
+}
+
+static PyObject *
 PQC_get_host(PQConnection *self)
 {
 	const char *host;
@@ -152,13 +159,6 @@ PQC_get_options(PQConnection *self)
 }
 
 static PyObject *
-PQC_get_socket(PQConnection *self)
-{
-	if (_PQC_not_open(self)) return NULL;
-	return PyInt_FromLong(PQsocket(self->connection));
-}
-
-static PyObject *
 PQC_get_protocolVersion(PQConnection *self)
 {
 	if (_PQC_not_open(self)) return NULL;
@@ -175,6 +175,8 @@ PQC_get_serverVersion(PQConnection *self)
 static PyMethodDef PQConnection_methods[] = {
 	{"close", (PyCFunction)PQConnection_close, METH_NOARGS,
 		PyDoc_STR("Close the connection")},
+	{"fileno", (PyCFunction)PQConnection_fileno, METH_NOARGS,
+		PyDoc_STR("Returns socket file descriptor")},
 	{NULL, NULL}
 };
 
@@ -193,7 +195,6 @@ static PyGetSetDef PQConnection_getset[] = {
 	{"user",		(getter)PQC_get_user},
 	{"password",		(getter)PQC_get_password},
 	{"options",		(getter)PQC_get_options},
-	{"socket",		(getter)PQC_get_socket},
 	{"protocolVersion",	(getter)PQC_get_protocolVersion},
 	{"serverVersion",	(getter)PQC_get_serverVersion},
 	{NULL}
