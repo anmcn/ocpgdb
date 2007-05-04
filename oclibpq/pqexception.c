@@ -23,7 +23,7 @@ PyObject *PqErr_NotSupportedError;	/*	 +--NotSupportedError	*/
 		return;						\
 }
 
-void pqexception_init(PyObject *module)
+void pg_exception_init(PyObject *module)
 {
 	NEW_EXC(PqErr_Warning, "Warning", PyExc_StandardError);
 	NEW_EXC(PqErr_Error, "Error", PyExc_StandardError);

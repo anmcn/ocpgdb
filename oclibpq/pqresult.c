@@ -3,9 +3,9 @@
 #include "oclibpq.h"
 
 static void
-PQResult_dealloc(PyObject *o)
+PyPgResult_dealloc(PyObject *o)
 {
-	PQResult *self = (PQResult *)o;
+	PyPgResult *self = (PyPgResult *)o;
 	PGresult *res = self->result;
 
 	if (res != NULL) {
@@ -18,27 +18,27 @@ PQResult_dealloc(PyObject *o)
 }
 
 
-static PyMethodDef PQResult_methods[] = {
+static PyMethodDef PyPgResult_methods[] = {
 	{NULL, NULL}
 };
 
-static PyMemberDef PQResult_members[] = {
+static PyMemberDef PyPgResult_members[] = {
 	{NULL}
 };
 
-static PyGetSetDef PQResult_getset[] = {
+static PyGetSetDef PyPgResult_getset[] = {
 	{NULL}
 };
 
-static char PQResult_doc[] = "XXX PQResult objects";
+static char PyPgResult_doc[] = "XXX PgResult objects";
 
-static PyTypeObject PQResult_Type = {
+static PyTypeObject PyPgResult_Type = {
 	PyObject_HEAD_INIT(NULL)
 	0,					/* ob_size */
-	MODULE_NAME ".PQResult",		/* tp_name */
-	sizeof(PQResult),			/* tp_basicsize */
+	MODULE_NAME ".PgResult",		/* tp_name */
+	sizeof(PyPgResult),			/* tp_basicsize */
 	0,					/* tp_itemsize */
-	PQResult_dealloc,			/* tp_dealloc */
+	PyPgResult_dealloc,			/* tp_dealloc */
 	0,					/* tp_print */
 	0,					/* tp_getattr */
 	0,					/* tp_setattr */
@@ -54,16 +54,16 @@ static PyTypeObject PQResult_Type = {
 	0,					/* tp_setattro */
 	0,					/* tp_as_buffer */
 	Py_TPFLAGS_DEFAULT,			/* tp_flags */
-	PQResult_doc,				/* tp_doc */
+	PyPgResult_doc,				/* tp_doc */
 	0,					/* tp_traverse */
 	0,					/* tp_clear */
 	0,					/* tp_richcompare */
 	0,					/* tp_weaklistoffset */
 	0,					/* tp_iter */
 	0,					/* tp_iternext */
-	PQResult_methods,			/* tp_methods */
-	PQResult_members,			/* tp_members */
-	PQResult_getset,			/* tp_getset */
+	PyPgResult_methods,			/* tp_methods */
+	PyPgResult_members,			/* tp_members */
+	PyPgResult_getset,			/* tp_getset */
 	0,					/* tp_base */
 	0,					/* tp_dict */
 	0,					/* tp_descr_get */
@@ -103,9 +103,9 @@ PQErr_FromResult(PGresult *result, PGconn *connection)
 }
 
 PyObject *
-PQResult_New(PQConnection *connection, PGresult *result)
+PyPgResult_New(PyPgConnection *connection, PGresult *result)
 {
-	PQResult *self;
+	PyPgResult *self;
 	enum result_type result_type;
 
 	if (!result) {
@@ -141,7 +141,7 @@ PQResult_New(PQConnection *connection, PGresult *result)
 		return NULL;
 	}
 
-	self = (PQResult *)PyObject_New(PQResult, &PQResult_Type);
+	self = (PyPgResult *)PyObject_New(PyPgResult, &PyPgResult_Type);
 	if (self == NULL) 
 		return NULL;
 
@@ -153,14 +153,14 @@ PQResult_New(PQConnection *connection, PGresult *result)
 }
 
 void
-pqresult_init(PyObject *module)
+pg_result_init(PyObject *module)
 {
-	if (PyType_Ready(&PQResult_Type) < 0)
+	if (PyType_Ready(&PyPgResult_Type) < 0)
 		return;
 /*
-	Py_INCREF(&PQResult_Type);
-	PyModule_AddObject(module, "PQResult", 
-			   (PyObject *)&PQResult_Type);
+	Py_INCREF(&PyPgResult_Type);
+	PyModule_AddObject(module, "PgResult", 
+			   (PyObject *)&PyPgResult_Type);
  */
 }
 

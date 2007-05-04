@@ -17,7 +17,7 @@ initoclibpq(void)
     if (module == NULL)
 	return;
 
-    pqexception_init(module);
-    pqresult_init(module);
-    pqconnection_init(module);
+    pg_exception_init(module);
+    pg_result_init(module);
+    pg_connection_init(module);
 }

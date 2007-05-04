@@ -14,13 +14,13 @@ typedef struct {
 	PGconn		*connection;
 	PyObject 	*conninfo;
 	PyObject 	*notices;
-} PQConnection;
+} PyPgConnection;
 
 typedef struct {
 	PyObject_HEAD
 	PGresult	*result;
-	PQConnection	*connection;
-} PQResult;
+	PyPgConnection	*connection;
+} PyPgResult;
 
 enum result_type {
 	RESULT_DQL,
@@ -42,9 +42,9 @@ extern PyObject *PqErr_NotSupportedError;
 
 
 /* pqconnection.c */
-extern void pqconnection_init(PyObject *module);
+extern void pg_connection_init(PyObject *module);
 /* pqresult.c */
-extern void pqresult_init(PyObject *module);
-extern PyObject *PQResult_New(PQConnection *connection, PGresult *result);
+extern void pg_result_init(PyObject *module);
+extern PyObject *PyPgResult_New(PyPgConnection *connection, PGresult *result);
 /* pqexception.c */
-extern void pqexception_init(PyObject *module);
+extern void pg_exception_init(PyObject *module);
