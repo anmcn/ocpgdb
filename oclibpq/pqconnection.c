@@ -3,19 +3,6 @@
 #include "oclibpq.h"
 
 static int
-set_str(PyObject **member, char *value)
-{
-	if (value == NULL || *value == '\0') {
-		Py_INCREF(Py_None);
-		*member = Py_None;
-		return 0;
-	}
-	if ((*member = PyString_FromString(value)) == NULL)
-		return -1;
-	return 0;
-}
-
-static int
 PQConnection_init(PyObject *o, PyObject *args, PyObject *kwds)
 {
 	PQConnection *self = (PQConnection *)o;
@@ -47,27 +34,9 @@ PQConnection_init(PyObject *o, PyObject *args, PyObject *kwds)
 	}
 
 	self->connection = cnx;
-	if (set_str(&self->conninfo, conninfo) < 0)
+	if ((self->conninfo = PyString_FromString(conninfo)) == NULL)
 		return -1;
-	if (set_str(&self->host, PQhost(cnx)) < 0)
-		return -1;
-	if ((self->port = PyInt_FromString(PQport(cnx), NULL, 10)) == NULL)
-		return -1;
-	if (set_str(&self->db, PQdb(cnx)) < 0)
-		return -1;
-	if (set_str(&self->tty, PQtty(cnx)) < 0)
-		return -1;
-	if (set_str(&self->user, PQuser(cnx)) < 0)
-		return -1;
-	if (set_str(&self->password, PQpass(cnx)) < 0)
-		return -1;
-	if (set_str(&self->options, PQoptions(cnx)) < 0)
-		return -1;
-	if ((self->socket = PyInt_FromLong(PQsocket(cnx))) == NULL)
-		return -1;
-	if ((self->protocolVersion = PyInt_FromLong(PQprotocolVersion(cnx))) == NULL)
-		return -1;
-	if ((self->serverVersion = PyInt_FromLong(PQserverVersion(cnx))) == NULL)
+	if ((self->notices = PyList_New(0)) == NULL)
 		return -1;
 	return 0;
 }
@@ -102,19 +71,70 @@ PQConnection_dealloc(PyObject *o)
 		Py_END_ALLOW_THREADS
 	}
 	Py_XDECREF(self->conninfo);
-	Py_XDECREF(self->host);
-	Py_XDECREF(self->port);
-	Py_XDECREF(self->db);
-	Py_XDECREF(self->tty);
-	Py_XDECREF(self->user);
-	Py_XDECREF(self->password);
-	Py_XDECREF(self->options);
-	Py_XDECREF(self->socket);
-	Py_XDECREF(self->protocolVersion);
-	Py_XDECREF(self->serverVersion);
+	Py_XDECREF(self->notices);
 	o->ob_type->tp_free(o);
 }
 
+static PyObject *
+PQC_get_host(PQConnection *self)
+{
+	const char *host = PQhost(self->connection);
+	return PyString_FromString((host && *host) ? host : "localhost");
+}
+
+static PyObject *
+PQC_get_port(PQConnection *self)
+{
+	return PyInt_FromString(PQport(self->connection), NULL, 10);
+}
+
+static PyObject *
+PQC_get_db(PQConnection *self)
+{
+	return PyString_FromString(PQdb(self->connection));
+}
+
+static PyObject *
+PQC_get_tty(PQConnection *self)
+{
+	return PyString_FromString(PQtty(self->connection));
+}
+
+static PyObject *
+PQC_get_user(PQConnection *self)
+{
+	return PyString_FromString(PQuser(self->connection));
+}
+
+static PyObject *
+PQC_get_password(PQConnection *self)
+{
+	return PyString_FromString(PQpass(self->connection));
+}
+
+static PyObject *
+PQC_get_options(PQConnection *self)
+{
+	return PyString_FromString(PQoptions(self->connection));
+}
+
+static PyObject *
+PQC_get_socket(PQConnection *self)
+{
+	return PyInt_FromLong(PQsocket(self->connection));
+}
+
+static PyObject *
+PQC_get_protocolVersion(PQConnection *self)
+{
+	return PyInt_FromLong(PQprotocolVersion(self->connection));
+}
+
+static PyObject *
+PQC_get_serverVersion(PQConnection *self)
+{
+	return PyInt_FromLong(PQserverVersion(self->connection));
+}
 
 static PyMethodDef PQConnection_methods[] = {
 	{NULL, NULL}
@@ -123,16 +143,20 @@ static PyMethodDef PQConnection_methods[] = {
 #define PQC_MO(m) offsetof(PQConnection, m)
 static PyMemberDef PQConnection_members[] = {
 	{"conninfo",	T_OBJECT,	PQC_MO(conninfo),	RO },
-	{"host",	T_OBJECT,	PQC_MO(host),		RO },
-	{"port",	T_OBJECT,	PQC_MO(port),		RO },
-	{"db",		T_OBJECT,	PQC_MO(db),		RO },
-	{"tty",		T_OBJECT,	PQC_MO(tty),		RO },
-	{"user",	T_OBJECT,	PQC_MO(user),		RO },
-	{"password",	T_OBJECT,	PQC_MO(password),	RO },
-	{"socket",	T_OBJECT,	PQC_MO(socket),		RO },
-	{"protocolVersion", T_OBJECT,	PQC_MO(protocolVersion),RO },
-	{"serverVersion", T_OBJECT,	PQC_MO(serverVersion),	RO },
 	{"notices",	T_OBJECT,	PQC_MO(notices),	RO },
+	{NULL}
+};
+
+static PyGetSetDef PQConnection_getset[] = {
+	{"host",	(getter)PQC_get_host},
+	{"port",	(getter)PQC_get_port},
+	{"db",		(getter)PQC_get_db},
+	{"tty",		(getter)PQC_get_tty},
+	{"user",	(getter)PQC_get_user},
+	{"socket",	(getter)PQC_get_socket},
+	{"protocolVersion", (getter)PQC_get_protocolVersion},
+	{"serverVersion", (getter)PQC_get_serverVersion},
+	{"password",	(getter)PQC_get_password},
 	{NULL}
 };
 
@@ -170,7 +194,7 @@ static PyTypeObject PQConnection_Type = {
 	0,					/* tp_iternext */
 	PQConnection_methods,			/* tp_methods */
 	PQConnection_members,			/* tp_members */
-	0,					/* tp_getset */
+	PQConnection_getset,			/* tp_getset */
 	0,					/* tp_base */
 	0,					/* tp_dict */
 	0,					/* tp_descr_get */

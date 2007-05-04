@@ -14,16 +14,6 @@ typedef struct {
 	PyObject_HEAD
 	PGconn		*connection;
 	PyObject 	*conninfo;
-	PyObject 	*host;
-	PyObject 	*port;
-	PyObject 	*db;
-	PyObject 	*tty;
-	PyObject 	*user;
-	PyObject 	*password;
-	PyObject 	*options;
-	PyObject 	*socket;
-	PyObject 	*protocolVersion;
-	PyObject 	*serverVersion;
 	PyObject 	*notices;
 } PQConnection;
 
