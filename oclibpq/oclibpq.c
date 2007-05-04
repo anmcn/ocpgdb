@@ -17,6 +17,7 @@ initoclibpq(void)
     if (module == NULL)
 	return;
 
-    pqconnection_init(module);
     pqexception_init(module);
+    pqresult_init(module);
+    pqconnection_init(module);
 }

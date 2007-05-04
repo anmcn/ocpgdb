@@ -101,6 +101,12 @@ PQConnection_close(PQConnection *self, PyObject *unused)
 }
 
 static PyObject *
+PQConnection_execute(PQConnection *self, PyObject *args) 
+{
+	return NULL;
+}
+
+static PyObject *
 PQConnection_fileno(PQConnection *self, PyObject *unused)
 {
 	if (_PQC_not_open(self)) return NULL;
@@ -175,6 +181,8 @@ PQC_get_serverVersion(PQConnection *self)
 static PyMethodDef PQConnection_methods[] = {
 	{"close", (PyCFunction)PQConnection_close, METH_NOARGS,
 		PyDoc_STR("Close the connection")},
+	{"execute", (PyCFunction)PQConnection_execute, METH_VARARGS,
+		PyDoc_STR("Execute an SQL command")},
 	{"fileno", (PyCFunction)PQConnection_fileno, METH_NOARGS,
 		PyDoc_STR("Returns socket file descriptor")},
 	{NULL, NULL}
