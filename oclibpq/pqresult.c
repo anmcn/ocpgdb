@@ -75,16 +75,80 @@ static PyTypeObject PQResult_Type = {
 	0,					/* tp_free */
 };
 
-static PyObject *
+static void 
+PQErr_FromResult(PGresult *result, PGconn *connection)
+{
+	PyObject *exc;
+	char *errmsg = PQerrorMessage(connection);
+
+	switch (PQresultStatus(result))
+	{
+		case PGRES_NONFATAL_ERROR:
+			exc = PqErr_ProgrammingError;
+			break;
+
+		case PGRES_FATAL_ERROR:
+			if (strstr(errmsg, "referential integrity violation"))
+				exc = PqErr_IntegrityError;
+			else
+				exc = PqErr_OperationalError;
+			break;
+
+		default:
+			exc = PqErr_InternalError;
+			break;
+	}
+
+	PyErr_SetString(exc, errmsg);
+}
+
+PyObject *
 PQResult_New(PQConnection *connection, PGresult *result)
 {
-	PQResult *self = (PQResult *)PyObject_New(PQResult, &PQResult_Type);
+	PQResult *self;
+	enum result_type result_type;
 
+	if (!result) {
+		PyErr_SetString(PqErr_OperationalError,
+				PQerrorMessage(connection->connection));
+		return NULL;
+	}
+
+	switch (PQresultStatus(result)) {
+	case PGRES_TUPLES_OK:
+		result_type = RESULT_DQL;
+		break;
+
+	case PGRES_COMMAND_OK:
+	case PGRES_COPY_OUT:
+	case PGRES_COPY_IN:
+		{
+			char *ct;
+			result_type = RESULT_DDL;
+			ct = PQcmdTuples(result);
+			if (ct[0])
+				result_type = RESULT_DML;
+		}
+		break;
+
+	case PGRES_EMPTY_QUERY:
+		result_type = RESULT_EMPTY;
+		break;
+
+	default:
+		PQErr_FromResult(result, connection->connection);
+		PQclear(result);
+		return NULL;
+	}
+
+	self = (PQResult *)PyObject_New(PQResult, &PQResult_Type);
 	if (self == NULL) 
 		return NULL;
+
 	Py_INCREF(connection);
 	self->connection = connection;
 	self->result = result;
+
 	return (PyObject *)self;
 }
 

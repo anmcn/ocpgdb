@@ -22,6 +22,13 @@ typedef struct {
 	PQConnection	*connection;
 } PQResult;
 
+enum result_type {
+	RESULT_DQL,
+	RESULT_DDL,
+	RESULT_DML,
+	RESULT_EMPTY,
+};
+
 extern PyObject *PqErr_Warning;
 extern PyObject *PqErr_Error;
 extern PyObject *PqErr_InterfaceError;

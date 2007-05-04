@@ -103,7 +103,54 @@ PQConnection_close(PQConnection *self, PyObject *unused)
 static PyObject *
 PQConnection_execute(PQConnection *self, PyObject *args) 
 {
-	return NULL;
+	char *query;
+	PyObject *params, *param;
+	int nParams;
+	int n;
+	const char **paramValues = NULL;
+	PGresult *res;
+	PyObject *result = NULL;
+
+
+	if (!PyArg_ParseTuple(args,"sO:execute", &query, &params)) 
+		return NULL;
+
+	if (!PySequence_Check(params))
+	{
+		PyErr_SetString(PyExc_TypeError, 
+				"execute parameters must be a sequence");
+		return NULL;
+	}
+
+	nParams = PySequence_Length(params);
+
+	paramValues = PyMem_Malloc(nParams * sizeof(char *));
+	if (paramValues == NULL)
+		return PyErr_NoMemory();
+
+	for (n = 0; n < nParams; ++n)
+	{
+		param = PySequence_GetItem(params, n);
+		if (param == NULL)
+			goto error;
+		paramValues[n] = PyString_AsString(param);
+		Py_DECREF(param);
+		if (paramValues[n] == NULL)
+			goto error;
+	}
+
+	Py_BEGIN_ALLOW_THREADS
+	res = PQexecParams(self->connection, query, nParams, NULL,
+			   paramValues, NULL, NULL, 0);
+	Py_END_ALLOW_THREADS
+
+	result = PQResult_New(self, res);
+
+error:
+	if (paramValues != NULL)
+		PyMem_Free(paramValues);
+
+	return result;
 }
 
 static PyObject *
