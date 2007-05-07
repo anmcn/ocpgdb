@@ -28,8 +28,19 @@ typedef struct {
 	PyObject_HEAD
 	PyPgConnection	*connection;
 	PGresult	*result;
-	enum result_type type;
+	enum result_type result_type;
+	int		 row_number;
+	int		 row_count;
+	PyObject 	*columns;
 } PyPgResult;
+
+typedef struct {
+	PyObject_HEAD
+	PyObject *name;	
+	PyObject *type;	
+	PyObject *modifier;	
+	PyObject *value;	
+} PyPgCell;
 
 extern PyObject *PqErr_Warning;
 extern PyObject *PqErr_Error;
@@ -45,8 +56,18 @@ extern PyObject *PqErr_NotSupportedError;
 
 /* pqconnection.c */
 extern void pg_connection_init(PyObject *module);
+#define PyPgConnection_Check(op) ((op)->ob_type == &PyPgConnection_Type)
+
 /* pqresult.c */
 extern void pg_result_init(PyObject *module);
 extern PyObject *PyPgResult_New(PyPgConnection *connection, PGresult *result);
+#define PyPgResult_Check(op) ((op)->ob_type == &PyPgResult_Type)
+
 /* pqexception.c */
 extern void pg_exception_init(PyObject *module);
+
+/* pqcell.c */
+extern PyObject *PyPgCell_New(PyObject *, PyObject *, PyObject *);
+extern PyObject *PyPgCell_FromCell(PyObject *cell, PyObject *value);
+extern void pg_cell_init(PyObject *module);
+#define PyPgCell_Check(op) ((op)->ob_type == &PyPgCell_Type)

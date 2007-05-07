@@ -18,6 +18,7 @@ initoclibpq(void)
 	return;
 
     pg_exception_init(module);
+    pg_cell_init(module);
     pg_result_init(module);
     pg_connection_init(module);
 }

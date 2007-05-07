@@ -241,6 +241,7 @@ static PyMemberDef PyPgConnection_members[] = {
 	{"notices",	T_OBJECT,	MO(notices),	RO },
 	{NULL}
 };
+#undef MO
 
 static PyGetSetDef PyPgConnection_getset[] = {
 	{"host",		(getter)get_host},

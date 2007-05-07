@@ -13,24 +13,71 @@ PyPgResult_dealloc(PyObject *o)
 		PQclear(res);
 	}
 	Py_XDECREF(self->connection);
+	Py_XDECREF(self->columns);
 
 	o->ob_type->tp_free(o);
 }
 
+static PyObject *
+PyPgResult_iter(PyObject *self)
+{
+	Py_INCREF(self);
+	return self;
+}
 
 static PyObject *
-get_type(PyPgResult *self)
+PyPgResult_iternext(PyPgResult *self)
+{
+	PyObject *row, *master_cell, *cell_value, *cell;
+	char *value;
+	int ncolumns = PyTuple_GET_SIZE(self->columns);
+	int i;
+
+	if (self->row_number >= self->row_count)
+		return NULL;
+
+	row = PyTuple_New(ncolumns);
+	if (row == NULL)
+		return NULL;
+	for (i = 0; i < ncolumns; ++i) {
+		if (PQgetisnull(self->result, self->row_number, i)) {
+			Py_INCREF(Py_None);
+			cell_value = Py_None;
+		} else {
+			value = PQgetvalue(self->result, self->row_number, i);
+			cell_value = PyString_FromString(value);
+			if (cell_value == NULL) {
+				Py_DECREF(row);
+				return NULL;
+			}
+		}
+		master_cell = PyTuple_GET_ITEM(self->columns, i);
+		cell = PyPgCell_FromCell(master_cell, cell_value);
+		if (cell == NULL) {
+			Py_DECREF(cell_value);
+			Py_DECREF(row);
+			return NULL;
+		}
+		PyTuple_SET_ITEM(row, i, cell);
+	}
+	++self->row_number;
+	return row;
+}
+
+
+static PyObject *
+get_result_type(PyPgResult *self)
 {
 	char *type_str;
 
-	switch (self->type) {
+	switch (self->result_type) {
 	case RESULT_DQL:	type_str = "DQL"; break;
 	case RESULT_DDL:	type_str = "DDL"; break;
 	case RESULT_DML:	type_str = "DML"; break;
 	case RESULT_EMPTY:	type_str = "EMPTY"; break;
 	default:
 		PyErr_Format(PqErr_InternalError, 
-		 	"Unknown query type: %d", self->type);
+		 	"Unknown query type: %d", self->result_type);
 		return NULL;
 	}
 	return PyString_FromString(type_str);
@@ -95,12 +142,15 @@ static PyMethodDef PyPgResult_methods[] = {
 	{NULL, NULL}
 };
 
+#define MO(m) offsetof(PyPgResult, m)
 static PyMemberDef PyPgResult_members[] = {
+	{"columns",	T_OBJECT,	MO(columns),	RO},
 	{NULL}
 };
+#undef MO
 
 static PyGetSetDef PyPgResult_getset[] = {
-	{"type",		(getter)get_type},
+	{"result_type",		(getter)get_result_type},
 	{"status",		(getter)get_status},
 	{"ntuples",		(getter)get_ntuples},
 	{"nfields",		(getter)get_nfields},
@@ -140,8 +190,8 @@ static PyTypeObject PyPgResult_Type = {
 	0,					/* tp_clear */
 	0,					/* tp_richcompare */
 	0,					/* tp_weaklistoffset */
-	0,					/* tp_iter */
-	0,					/* tp_iternext */
+	PyPgResult_iter,			/* tp_iter */
+	(iternextfunc)PyPgResult_iternext,	/* tp_iternext */
 	PyPgResult_methods,			/* tp_methods */
 	PyPgResult_members,			/* tp_members */
 	PyPgResult_getset,			/* tp_getset */
@@ -181,6 +231,39 @@ PQErr_FromResult(PGresult *result, PGconn *connection)
 	}
 
 	PyErr_SetString(exc, errmsg);
+}
+
+PyObject *
+_PyPgResult_Columns(PGresult *result)
+{
+	PyObject *columns, *cell, *name, *type, *modifier;
+	int ncolumns = PQnfields(result);
+	int i;
+
+	columns = PyTuple_New(ncolumns);
+	if (columns == NULL)
+		return NULL;
+	for (i = 0; i < ncolumns; ++i) {
+		name = type = modifier = cell = NULL;
+		if (!(name = PyString_FromString(PQfname(result, i))))
+			goto error;
+		if (!(type = PyInt_FromLong(PQftype(result, i))))
+			goto error;
+		if (!(modifier = PyInt_FromLong(PQfmod(result, i))))
+			goto error;
+		if (!(cell = PyPgCell_New(name, type, modifier)))
+			goto error;
+		PyTuple_SET_ITEM(columns, i, cell);
+		continue;
+error:
+		Py_XDECREF(cell);
+		Py_XDECREF(type);
+		Py_XDECREF(name);
+		Py_XDECREF(modifier);
+		Py_DECREF(columns);
+		return NULL;
+	}
+	return columns;
 }
 
 PyObject *
@@ -229,9 +312,16 @@ PyPgResult_New(PyPgConnection *connection, PGresult *result)
 	Py_INCREF(connection);
 	self->connection = connection;
 	self->result = result;
-	self->type = result_type;
-
+	self->result_type = result_type;
+	self->row_number = 0;
+	self->row_count = PQntuples(result);
+	if ((self->columns = _PyPgResult_Columns(result)) == NULL)
+		goto error;
 	return (PyObject *)self;
+
+error:
+	Py_DECREF(self);
+	return NULL;
 }
 
 void
