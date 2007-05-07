@@ -13,6 +13,19 @@ PyPgCell_dealloc(PyPgCell *self)
 	self->ob_type->tp_free((PyObject *)self);
 }
 
+static PyObject *
+PyPgCell_repr(PyPgCell *self)
+{
+	return PyString_FromFormat("<PyPgCell name '%s', type %ld, modifier %ld, value '%s' at %p>",
+				   PyString_AsString(self->name),
+				   PyInt_AsLong(self->type),
+				   PyInt_AsLong(self->modifier),
+				   (self->value == Py_None ? "" :
+				   	PyString_AsString(self->value)),
+				   self);
+
+}
+
 #define MO(m) offsetof(PyPgCell, m)
 static PyMemberDef PyPgCell_members[] = {
 	{"name",	T_OBJECT,	MO(name),	RO},
@@ -28,7 +41,7 @@ static char PyPgCell_doc[] = "XXX PgCell objects";
 static PyTypeObject PyPgCell_Type = {
 	PyObject_HEAD_INIT(NULL)
 	0,					/* ob_size */
-	MODULE_NAME ".PgCell",		/* tp_name */
+	MODULE_NAME ".PgCell",			/* tp_name */
 	sizeof(PyPgCell),			/* tp_basicsize */
 	0,					/* tp_itemsize */
 	(destructor)PyPgCell_dealloc,		/* tp_dealloc */
@@ -36,7 +49,7 @@ static PyTypeObject PyPgCell_Type = {
 	0,					/* tp_getattr */
 	0,					/* tp_setattr */
 	0,					/* tp_compare */
-	0,					/* tp_repr */
+	(reprfunc)PyPgCell_repr,		/* tp_repr */
 	0,					/* tp_as_number */
 	0,					/* tp_as_sequence */
 	0,					/* tp_as_mapping */

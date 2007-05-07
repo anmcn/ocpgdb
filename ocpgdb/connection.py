@@ -1,7 +1,6 @@
 from oclibpq import *
-import pgtype
+from fromdb import from_db, set_from_db
 
-from_db = {}
 to_db = {}
 
 def connect(*args, **kwargs):
@@ -21,11 +20,13 @@ class Cursor:
 class Connection(PgConnection):
     def __init__(self, *args, **kwargs):
         conninfo = ','.join(['%s=%s' % i for i in kwargs.items()])
-        self.from_db = from_db
-        self.to_db = to_db
+        self.from_db = dict(from_db)
+        self.to_db = dict(to_db)
         PgConnection.__init__(self, conninfo)
 
     def result_column(self, cell):
+        if cell.value is None:
+            return None
         try:
             cvt = self.from_db[cell.type]
         except KeyError:
