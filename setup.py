@@ -52,7 +52,7 @@ oclibpq_module = Extension(
     define_macros=defines,
     include_dirs=includes,
     library_dirs=library_dirs,
-    libraries = libraries,
+    libraries=libraries,
 )
 
 setup(
@@ -60,8 +60,8 @@ setup(
     author_email=AUTHOR[1],
     description=DESCRIPTION,
     download_url=DOWNLOAD,
-    py_modules = ['ocpgdb'],
-    ext_modules = [oclibpq_module],
+    packages=['ocpgdb'],
+    ext_modules=[oclibpq_module],
     license='BSD',
     long_description=DESCRIPTION,
     name=NAME,
