@@ -107,7 +107,7 @@ connection_execute(PyPgConnection *self, PyObject *args)
 	PyObject *params, *param;
 	int nParams;
 	int n;
-	const char **paramValues = NULL;
+	const char **paramValues = NULL, *paramValue;
 	PGresult *res;
 	PyObject *result = NULL;
 
@@ -133,10 +133,14 @@ connection_execute(PyPgConnection *self, PyObject *args)
 		param = PySequence_GetItem(params, n);
 		if (param == NULL)
 			goto error;
-		paramValues[n] = PyString_AsString(param);
-		Py_DECREF(param);
-		if (paramValues[n] == NULL)
+		if (param == Py_None)
+			paramValue = NULL;
+		else if ((paramValue = PyString_AsString(param)) == NULL) {
+			Py_DECREF(param);
 			goto error;
+		}
+		paramValues[n] = paramValue;
+		Py_DECREF(param);
 	}
 
 	Py_BEGIN_ALLOW_THREADS
@@ -225,6 +229,22 @@ get_serverVersion(PyPgConnection *self)
 	return PyInt_FromLong(PQserverVersion(self->connection));
 }
 
+static PyObject *
+get_client_encoding(PyPgConnection *self)
+{
+	const char *enc;
+
+	if (_not_open(self)) return NULL;
+	enc = PQparameterStatus(self->connection, "client_encoding");
+	if (enc == NULL) {
+		Py_INCREF(Py_None);
+		return Py_None;
+	}
+	else
+		return PyString_FromString(enc);
+}
+
+
 static PyMethodDef PyPgConnection_methods[] = {
 	{"close", (PyCFunction)connection_close, METH_NOARGS,
 		PyDoc_STR("Close the connection")},
@@ -253,6 +273,7 @@ static PyGetSetDef PyPgConnection_getset[] = {
 	{"options",		(getter)get_options},
 	{"protocolVersion",	(getter)get_protocolVersion},
 	{"serverVersion",	(getter)get_serverVersion},
+	{"client_encoding",	(getter)get_client_encoding},
 	{NULL}
 };
 
