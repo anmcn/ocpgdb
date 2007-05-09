@@ -25,7 +25,7 @@ class Cursor:
     def reset(self):
         self.__result = None
         if self.__connection is not None and self.__cursor:
-            self.__connection._execute('CLOSE "%s"' % self.__name)
+            self._execute('CLOSE "%s"' % self.__name)
         self.description = None
         self.rowcount = -1
 
@@ -47,6 +47,13 @@ class Cursor:
     def setoutputsize(self, size, column=None):
         pass
 
+    def _execute(self, cmd, args=()):
+        return self.__connection._execute(cmd, args)
+
+    def _make_description(self, result):
+        return [(col.name, col.type, None, None, None, None, None)
+                for col in result.columns]
+
     def execute(self, cmd, *args, **kwargs):
         self._assert_open()
         self.reset()
@@ -57,10 +64,19 @@ class Cursor:
         if use_cursor:
             self.__connection.begin()
             cmd = 'DECLARE "%s" CURSOR FOR %s' % (self.__name, cmd)
-        result = self.__connection._execute(cmd, args)
-        self.__cursor = use_cursor and result.result_type == 'DDL'
+        result = self._execute(cmd, args)
+        print result.ntuples
         if result.result_type == 'DQL':
             self.__result = result
+            self.rowcount = result.ntuples
+            self.description = self._make_description(result)
+        elif result.result_type == 'DML':
+            self.rowcount = result.cmdTuples
+        elif use_cursor:
+            self.__cursor = True
+            # We need to FETCH anyway to get the column descriptions.
+            result = self._execute('FETCH 0 FROM "%s"' % self.__name)
+            self.description = self._make_description(result)
         return self
 
     def _fetch(self, count=None):
@@ -79,8 +95,7 @@ class Cursor:
         elif self.__cursor:
             if count is None:
                 count = 'ALL'
-            cmd = 'FETCH %s FROM "%s"' % (count, self.__name)
-            result = self.__connection._execute(cmd)
+            result = self._execute('FETCH %s FROM "%s"' % (count, self.__name))
             return self.__connection._result_rows(result)
         else:
             raise ProgrammingError('No results pending')

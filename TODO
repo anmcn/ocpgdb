@@ -1,3 +1,26 @@
-- translate parameter styles to PG
 - add "notice" support
-- implement executemany
+- implement executemany (use prepared statements?)
+- fallbacks for PQexecParams problem? Protocol 2 fallbacks (PQexec)?
+
+  PQexecParams fundementally broken with a V7 server:
+    http://svr5.postgresql.org/pgsql-general/2005-01/msg00812.php
+
+    I think you are running into an issue that was fixed during
+    the 8.0 development cycle.  From the CVS logs:
+
+        2004-08-01 21:30  tgl
+
+        Allow DECLARE CURSOR to take parameters from the portal in which it
+        is executed.  Previously, the DECLARE would succeed but subsequent
+        FETCHes would fail since the parameter values supplied to DECLARE
+        were not propagated to the portal created for the cursor.  In
+        support of this, add type Oids to ParamListInfo entries, which
+        seems like a good idea anyway since code that extracts a value can
+        double-check that it got the type of value it was expecting. 
+        Oliver Jowett, with minor editorialization by Tom Lane.
+
+    So what you are trying to do will work in 8.0 but not in 7.4.
+
+  See also:
+    http://archives.postgresql.org/pgsql-committers/2004-08/msg00028.php
+    http://www.mail-archive.com/pgsql-general@postgresql.org/msg55421.html
