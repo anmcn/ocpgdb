@@ -1,0 +1,3 @@
+- translate parameter styles to PG
+- add "notice" support
+- implement executemany

@@ -165,6 +165,14 @@ connection_fileno(PyPgConnection *self, PyObject *unused)
 }
 
 static PyObject *
+get_closed(PyPgConnection *self)
+{
+	PyObject *res = self->connection ? Py_False : Py_True;
+	Py_INCREF(res);
+	return res;
+}
+
+static PyObject *
 get_host(PyPgConnection *self)
 {
 	const char *host;
@@ -264,16 +272,17 @@ static PyMemberDef PyPgConnection_members[] = {
 #undef MO
 
 static PyGetSetDef PyPgConnection_getset[] = {
-	{"host",		(getter)get_host},
-	{"port",		(getter)get_port},
+	{"client_encoding",	(getter)get_client_encoding},
+	{"closed",		(getter)get_closed},
 	{"db",			(getter)get_db},
-	{"tty",			(getter)get_tty},
-	{"user",		(getter)get_user},
-	{"password",		(getter)get_password},
+	{"host",		(getter)get_host},
 	{"options",		(getter)get_options},
+	{"password",		(getter)get_password},
+	{"port",		(getter)get_port},
 	{"protocolVersion",	(getter)get_protocolVersion},
 	{"serverVersion",	(getter)get_serverVersion},
-	{"client_encoding",	(getter)get_client_encoding},
+	{"tty",			(getter)get_tty},
+	{"user",		(getter)get_user},
 	{NULL}
 };
 
