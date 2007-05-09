@@ -22,8 +22,17 @@ PyPgConnection_init(PyObject *o, PyObject *args, PyObject *kwds)
 
 	assert(self->connection == NULL);
 
-	if (!_PyArg_NoKeywords("PyPgConnection", kwds))
-		return -1;
+	if (kwds != NULL) {
+		int i = PyObject_Length(kwds);
+		if (i < 0)
+			return -1;
+		else if (i > 0) {
+			PyErr_SetString(PyExc_TypeError,
+			    MODULE_NAME "PgConnection takes "
+			    "no keyword arguments");
+			return -1;
+		}
+	}
 	if (!PyArg_ParseTuple(args, "s:PyPgConnection", &conninfo))
 		return -1;
 

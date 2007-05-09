@@ -8,6 +8,28 @@
 #include <libpq-fe.h>
 #include <libpq/libpq-fs.h>
 
+/* Python 2.3 compatibility - copied from Python 2.5 source */
+#ifndef Py_VISIT
+#define Py_VISIT(op)							\
+        do { 								\
+                if (op) {						\
+                        int vret = visit((PyObject *)(op), arg);	\
+                        if (vret)					\
+                                return vret;				\
+                }							\
+        } while (0)
+#endif
+#ifndef Py_CLEAR
+#define Py_CLEAR(op)				\
+        do {                            	\
+                if (op) {			\
+                        PyObject *tmp = (PyObject *)(op);	\
+                        (op) = NULL;		\
+                        Py_DECREF(tmp);		\
+                }				\
+        } while (0)
+#endif
+
 #define MODULE_NAME "oclibpq"
 
 enum result_type {
