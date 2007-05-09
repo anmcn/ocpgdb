@@ -50,19 +50,26 @@ class Cursor:
     def execute(self, cmd, *args, **kwargs):
         self._assert_open()
         self.reset()
+        cmd, args = self.__connection._normalise_args(cmd, args, kwargs)
         use_cursor = (self._re_DQL.match(cmd) is not None and
                       self._re_4UP.search(cmd) is None and 
                       self._re_IN2.search(cmd) is None)
         if use_cursor:
             self.__connection.begin()
             cmd = 'DECLARE "%s" CURSOR FOR %s' % (self.__name, cmd)
-        result = self.__connection._execute(cmd, *args, **kwargs)
+        result = self.__connection._execute(cmd, args)
         self.__cursor = use_cursor and result.result_type == 'DDL'
         if result.result_type == 'DQL':
             self.__result = result
+        return self
 
     def _fetch(self, count=None):
         self._assert_open()
+        if count is not None:
+            try:
+                count = int(count)
+            except (TypeError, ValueError):
+                raise ProgrammingError('Fetch count must be an integer')
         if self.__result:
             rows = self.__result
             rr = self.__connection._result_row
@@ -107,6 +114,12 @@ class Connection(PgConnection):
         self._execute('SET datestyle TO ISO')
         self.__intx = False
 
+    def set_from_db(self, pgtype, fn):
+        self.from_db[pgtype] = fn
+
+    def use_python_datetime(self):
+        fromdb._set_python_datetime(self.set_from_db)
+
     def _result_column(self, cell):
         if cell.value is None:
             return None
@@ -139,16 +152,7 @@ class Connection(PgConnection):
     def _args_to_db(self, args):
         return [self._value_to_db(a) for a in args]
 
-    def cursor(self, name=None):
-        return Cursor(self, name)
-
-    def set_from_db(self, pgtype, fn):
-        self.from_db[pgtype] = fn
-
-    def use_python_datetime(self):
-        fromdb._set_python_datetime(self.set_from_db)
-
-    def _execute(self, cmd, *args):
+    def _execute(self, cmd, args=()):
         args = self._args_to_db(args)
         result = PgConnection.execute(self, cmd, args)
         if self._re_BEGIN.match(cmd):
@@ -157,7 +161,55 @@ class Connection(PgConnection):
             self.__intx = False
         return result
 
-    def execute(self, cmd, *args):
+    def _normalise_dict_args(self, cmd, dictargs):
+        class DictArgs:
+            def __init__(self, dictargs):
+                self.index = 0
+                self.args = []
+                self.dictargs = dictargs
+                self.fmtdict = {}
+            def __getitem__(self, k):
+                fmt = self.fmtdict.get(k, None)
+                if fmt is None:
+                    try:
+                        self.args.append(self.dictargs[k])
+                    except KeyError:
+                        raise ProgrammingError('argument %%(%)s not found in dictionary' % k)
+                    self.index += 1
+                    self.fmtdict[k] = fmt = '$%d' % self.index
+                return fmt
+            def __str__(self):
+                raise ProgrammingError('command contains %s with dict args')
+        dictargs = DictArgs(dictargs)
+        cmd = cmd % dictargs
+        return cmd, tuple(dictargs.args)
+
+    def _normalise_seq_args(self, cmd, seqargs):
+        seqargs = tuple(seqargs)
+        cmd = cmd.split('%s')
+        expected = len(cmd) - 1
+        if expected != len(seqargs):
+            raise ProgrammingError('wrong number of arguments for command string (expected %d, got %s)' % (expected, len(seqargs)))
+        for i in xrange(expected, 0, -1):
+            cmd.insert(i, '$%d' % i)
+        return ''.join(cmd), seqargs
+
+    def _normalise_args(self, cmd, args, kwargs):
+        if not args and not kwargs:
+            return cmd, ()
+        if kwargs:
+            if args:
+                raise ProgrammingError('Cannot mix dict and tuple args')
+            return self._normalise_dict_args(cmd, kwargs)
+        if len(args) == 1:
+            if hasattr(args[0], 'keys'):
+                return self._normalise_dict_args(cmd, args[0])
+            elif hasattr(args[0], '__iter__'):
+                return self._normalise_seq_args(cmd, args[0])
+        return self._normalise_seq_args(cmd, args)
+
+    def execute(self, cmd, *args, **kwargs):
+        cmd, args = self._normalise_args(cmd, args, kwargs)
         return self._result_rows(self._execute(cmd, args))
 
     def begin(self):
@@ -171,6 +223,9 @@ class Connection(PgConnection):
     def rollback(self):
         if self.__intx:
             self._execute('ROLLBACK WORK')
+
+    def cursor(self, name=None):
+        return Cursor(self, name)
 
 
 def connect(*args, **kwargs):
