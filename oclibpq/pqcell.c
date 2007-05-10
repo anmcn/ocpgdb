@@ -5,9 +5,10 @@
 static void
 PyPgCell_dealloc(PyPgCell *self)
 {
-	Py_DECREF(self->name);
 	Py_DECREF(self->type);
+	Py_DECREF(self->name);
 	Py_DECREF(self->modifier);
+	Py_DECREF(self->format);
 	Py_DECREF(self->value);
 
 	self->ob_type->tp_free((PyObject *)self);
@@ -21,16 +22,17 @@ PyPgCell_repr(PyPgCell *self)
 				   PyInt_AsLong(self->type),
 				   PyInt_AsLong(self->modifier),
 				   (self->value == Py_None ? "" :
-				   	PyString_AsString(self->value)),
+					PyString_AsString(self->value)),
 				   self);
 
 }
 
 #define MO(m) offsetof(PyPgCell, m)
 static PyMemberDef PyPgCell_members[] = {
+	{"format",	T_OBJECT,	MO(format),	RO},
+	{"modifier",	T_OBJECT,	MO(modifier),	RO},
 	{"name",	T_OBJECT,	MO(name),	RO},
 	{"type",	T_OBJECT,	MO(type),	RO},
-	{"modifier",	T_OBJECT,	MO(modifier),	RO},
 	{"value",	T_OBJECT,	MO(value),	RO},
 	{NULL}
 };
@@ -65,11 +67,11 @@ static PyTypeObject PyPgCell_Type = {
 	0,					/* tp_clear */
 	0,					/* tp_richcompare */
 	0,					/* tp_weaklistoffset */
-	0,              			/* tp_iter */
-	0,                              	/* tp_iternext */
-	0,              			/* tp_methods */
+	0,					/* tp_iter */
+	0,					/* tp_iternext */
+	0,					/* tp_methods */
 	PyPgCell_members,			/* tp_members */
-	0,              			/* tp_getset */
+	0,					/* tp_getset */
 	0,					/* tp_base */
 	0,					/* tp_dict */
 	0,					/* tp_descr_get */
@@ -82,32 +84,51 @@ static PyTypeObject PyPgCell_Type = {
 };
 
 PyObject *
-PyPgCell_New(PyObject *name, PyObject *type, PyObject *modifier)
+PyPgCell_New(PGresult *result, int col)
 {
-	/* Steals a reference from caller for name, type and modifier */
 	PyPgCell *self;
+	int format;
+	char *name;
+
+	format = PQfformat(result, col);
+	name = PQfname(result, col);
+	if (format != 0 && format != 1) {
+		PyErr_Format(PqErr_InternalError, 
+			"Column \"%s\": unknown column format: %d", 
+			name, format);
+		return NULL;
+	}
 
 	self = (PyPgCell *)PyObject_New(PyPgCell, &PyPgCell_Type);
 	if (self == NULL)
 		return NULL;
 
-	self->name = name;
-        self->type = type;
-        self->modifier = modifier;
+	Py_INCREF(Py_None);
+	self->value = Py_None;
 
-        Py_INCREF(Py_None);
-        self->value = Py_None;
+	self->name = self->type = self->modifier = self->format = NULL;
+
+	if (!(self->format = PyInt_FromLong(format)))
+		goto error;
+	if (!(self->modifier = PyInt_FromLong(PQfmod(result, col))))
+		goto error;
+	if (!(self->name = PyString_FromString(name)))
+		goto error;
+	if (!(self->type = PyInt_FromLong(PQftype(result, col))))
+		goto error;
 
 	return (PyObject *)self;
+error:
+	Py_DECREF(self);
+	return NULL;
 }
 
 PyObject *
-PyPgCell_FromCell(PyObject *cell_object, PyObject *value)
+PyPgCell_FromCell(PyPgCell *cell, PyObject *value)
 {
 	PyPgCell *self;
-	PyPgCell *cell = (PyPgCell *)cell_object;
 
-	if (!PyPgCell_Check(cell_object)) {
+	if (!PyPgCell_Check((PyObject *)cell)) {
 		PyErr_SetString(PyExc_TypeError, 
 			"PyPgCell_FromCell first parameter must be a PyPgCell");
 		return NULL;
@@ -117,16 +138,24 @@ PyPgCell_FromCell(PyObject *cell_object, PyObject *value)
 	if (self == NULL)
 		return NULL;
 
-        Py_INCREF(cell->name);
+	self->format = cell->format;
+	Py_INCREF(cell->format);
+	self->modifier = cell->modifier;
+	Py_INCREF(cell->modifier);
 	self->name = cell->name;
-        Py_INCREF(cell->type);
-        self->type = cell->type;
-        Py_INCREF(cell->modifier);
-        self->modifier = cell->modifier;
+	Py_INCREF(cell->name);
+	self->type = cell->type;
+	Py_INCREF(cell->type);
 
-        self->value = value;
+	self->value = value;
 
 	return (PyObject *)self;
+}
+
+int
+PyPgCell_Check(PyObject *op)
+{
+	return op->ob_type == &PyPgCell_Type;
 }
 
 void

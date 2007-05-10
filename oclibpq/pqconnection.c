@@ -122,7 +122,10 @@ connection_execute(PyPgConnection *self, PyObject *args)
 	PyObject *params, *param;
 	int nParams;
 	int n;
-	const char **paramValues = NULL, *paramValue;
+	Oid *paramTypes = NULL;
+	const char **paramValues = NULL;
+	int *paramLengths = NULL;
+	int *paramFormats = NULL;
 	PGresult *res;
 	PyObject *result = NULL;
 
@@ -139,35 +142,68 @@ connection_execute(PyPgConnection *self, PyObject *args)
 
 	nParams = PySequence_Length(params);
 
+	paramTypes = PyMem_Malloc(nParams * sizeof(Oid));
+	if (paramTypes == NULL)
+		return PyErr_NoMemory();
 	paramValues = PyMem_Malloc(nParams * sizeof(char *));
 	if (paramValues == NULL)
+		return PyErr_NoMemory();
+	paramLengths = PyMem_Malloc(nParams * sizeof(int));
+	if (paramLengths == NULL)
+		return PyErr_NoMemory();
+	paramFormats = PyMem_Malloc(nParams * sizeof(int));
+	if (paramFormats == NULL)
 		return PyErr_NoMemory();
 
 	for (n = 0; n < nParams; ++n)
 	{
+		paramTypes[n] = 0;
+		paramValues[n] = NULL;
+		paramLengths[n] = 0;
+		paramFormats[n] = 0;
 		param = PySequence_GetItem(params, n);
 		if (param == NULL)
 			goto error;
-		if (param == Py_None)
-			paramValue = NULL;
-		else if ((paramValue = PyString_AsString(param)) == NULL) {
-			Py_DECREF(param);
-			goto error;
+		if (param == Py_None) {
+			/* */
+		} else if (PyPgBytea_Check(param)) {
+			char *str;
+			Py_ssize_t len;
+			if (PyString_AsStringAndSize(param, &str, &len) < 0) {
+				Py_DECREF(param);
+				goto error;
+			}
+			paramValues[n] = str;
+			paramLengths[n] = len;
+			paramFormats[n] = 1;
+			paramTypes[n] = 17;
+		} else {
+			char *str;
+			if ((str = PyString_AsString(param)) == NULL) {
+				Py_DECREF(param);
+				goto error;
+			}
+			paramValues[n] = str;
 		}
-		paramValues[n] = paramValue;
 		Py_DECREF(param);
 	}
 
 	Py_BEGIN_ALLOW_THREADS
 	res = PQexecParams(self->connection, query, nParams, NULL,
-			   paramValues, NULL, NULL, 0);
+			   paramValues, paramLengths, paramFormats, 0);
 	Py_END_ALLOW_THREADS
 
 	result = PyPgResult_New(self, res);
 
 error:
+	if (paramFormats != NULL)
+		PyMem_Free(paramFormats);
+	if (paramLengths != NULL)
+		PyMem_Free(paramLengths);
 	if (paramValues != NULL)
 		PyMem_Free(paramValues);
+	if (paramTypes != NULL)
+		PyMem_Free(paramTypes);
 
 	return result;
 }

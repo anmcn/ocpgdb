@@ -69,7 +69,7 @@ class ConversionTests(unittest.TestCase):
             expect = input
         if expect_type is None:
             expect_type = type(expect)
-        rows = list(db.execute("select $1::" + pgtype, input))
+        rows = list(db.execute("select %s::" + pgtype, input))
         self.assertEqual(len(rows), 1)
         self.assertEqual(len(rows[0]), 1)
         value = rows[0][0]
@@ -127,23 +127,33 @@ class ConversionTests(unittest.TestCase):
         try:
             self._test(db, None, 'text')
             self._test(db, '', 'text')
-            self._test(db, '\'\"\\\001', 'text')
+            self._test(db, '\'\"\x01', 'text')
             self._test(db, 'A' * 65536, 'text')
 
             self._test(db, None, 'varchar')
             self._test(db, '', 'varchar')
-            self._test(db, '\'\"\\\001', 'varchar')
+            self._test(db, '\'\"\x01', 'varchar')
             self._test(db, 'A' * 65536, 'varchar')
 
             self._test(db, None, 'varchar(5)')
             self._test(db, '', 'varchar(5)')
-            self._test(db, '\'\"\\\001', 'varchar(5)')
+            self._test(db, '\'\"\x01', 'varchar(5)')
             self._test(db, 'A' * 65536, 'varchar(5)', 'A' * 5)
 
             self._test(db, None, 'char(5)')
             self._test(db, '', 'char(5)', ' ' * 5)
-            self._test(db, '\'\"\\\001', 'char(5)', '\'\"\\\001 ')
+            self._test(db, '\'\"\x01', 'char(5)', '\'\"\x01  ')
             self._test(db, 'A' * 65536, 'char(5)', 'A' * 5)
+        finally:
+            db.close()
+
+    def test_bytea(self):
+        db = ocpgdb.connect(**scratch_db)
+        try:
+            self._test(db, None, 'bytea')
+            self._test(db, '', 'bytea')
+            data = ocpgdb.bytea(''.join([chr(i) for i in range(256)]))
+            self._test(db, data, 'bytea')
         finally:
             db.close()
 
@@ -197,6 +207,7 @@ class ConversionSuite(unittest.TestSuite):
         'test_int',
         'test_float',
         'test_str',
+        'test_bytea',
         'test_decimal',
         'test_py_datetime',
     ]

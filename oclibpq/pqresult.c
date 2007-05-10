@@ -28,30 +28,46 @@ PyPgResult_iter(PyObject *self)
 static PyObject *
 PyPgResult_iternext(PyPgResult *self)
 {
-	PyObject *row, *master_cell, *cell_value, *cell;
+	PyObject *row, *cell_value, *cell;
+	PyPgCell *master_cell;
 	char *value;
-	int ncolumns = PyTuple_GET_SIZE(self->columns);
+	size_t len;
 	int i;
+	int format;
+	int ncolumns = PyTuple_GET_SIZE(self->columns);
+	PGresult *result = self->result;
+	int row_number = self->row_number;
 
-	if (self->row_number >= self->row_count)
+	if (row_number >= self->row_count)
 		return NULL;
 
 	row = PyTuple_New(ncolumns);
 	if (row == NULL)
 		return NULL;
 	for (i = 0; i < ncolumns; ++i) {
-		if (PQgetisnull(self->result, self->row_number, i)) {
+		master_cell = (PyPgCell *)PyTuple_GET_ITEM(self->columns, i);
+		format = PyInt_AS_LONG(master_cell->format);
+		if (PQgetisnull(result, row_number, i)) {
 			Py_INCREF(Py_None);
 			cell_value = Py_None;
-		} else {
-			value = PQgetvalue(self->result, self->row_number, i);
-			cell_value = PyString_FromString(value);
+		} else if (format == 0) {
+			value = PQgetvalue(result, row_number, i);
+			value = (char *)PQunescapeBytea((unsigned char *)value, &len);
+			cell_value = PyString_FromStringAndSize(value, len);
+			PQfreemem(value);
+			if (cell_value == NULL) {
+				Py_DECREF(row);
+				return NULL;
+			}
+		} else if (format == 1) {
+			value = PQgetvalue(result, row_number, i);
+			len = PQgetlength(result, row_number, i);
+			cell_value = PyString_FromStringAndSize(value, len);
 			if (cell_value == NULL) {
 				Py_DECREF(row);
 				return NULL;
 			}
 		}
-		master_cell = PyTuple_GET_ITEM(self->columns, i);
 		cell = PyPgCell_FromCell(master_cell, cell_value);
 		if (cell == NULL) {
 			Py_DECREF(cell_value);
@@ -236,7 +252,7 @@ PQErr_FromResult(PGresult *result, PGconn *connection)
 PyObject *
 _PyPgResult_Columns(PGresult *result)
 {
-	PyObject *columns, *cell, *name, *type, *modifier;
+	PyObject *columns, *cell;
 	int ncolumns = PQnfields(result);
 	int i;
 
@@ -244,24 +260,11 @@ _PyPgResult_Columns(PGresult *result)
 	if (columns == NULL)
 		return NULL;
 	for (i = 0; i < ncolumns; ++i) {
-		name = type = modifier = cell = NULL;
-		if (!(name = PyString_FromString(PQfname(result, i))))
-			goto error;
-		if (!(type = PyInt_FromLong(PQftype(result, i))))
-			goto error;
-		if (!(modifier = PyInt_FromLong(PQfmod(result, i))))
-			goto error;
-		if (!(cell = PyPgCell_New(name, type, modifier)))
-			goto error;
+		if ((cell = PyPgCell_New(result, i)) == NULL) {
+			Py_DECREF(columns);
+			return NULL;
+		}
 		PyTuple_SET_ITEM(columns, i, cell);
-		continue;
-error:
-		Py_XDECREF(cell);
-		Py_XDECREF(type);
-		Py_XDECREF(name);
-		Py_XDECREF(modifier);
-		Py_DECREF(columns);
-		return NULL;
 	}
 	return columns;
 }

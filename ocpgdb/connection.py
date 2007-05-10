@@ -5,7 +5,9 @@ import re
 from oclibpq import *
 import fromdb
 
-to_db = {}                      # XXX this is a placeholder
+to_db = {                      # XXX this is a placeholder
+    bytea: lambda x: x,
+}
 
 
 class Cursor:

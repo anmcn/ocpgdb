@@ -40,6 +40,10 @@ enum result_type {
 };
 
 typedef struct {
+	PyStringObject	str;
+} PyPgBytea;
+
+typedef struct {
 	PyObject_HEAD
 	PGconn		*connection;
 	PyObject 	*conninfo;
@@ -58,9 +62,10 @@ typedef struct {
 
 typedef struct {
 	PyObject_HEAD
+	PyObject *format;	
+	PyObject *modifier;	
 	PyObject *name;	
 	PyObject *type;	
-	PyObject *modifier;	
 	PyObject *value;	
 } PyPgCell;
 
@@ -89,7 +94,11 @@ extern PyObject *PyPgResult_New(PyPgConnection *connection, PGresult *result);
 extern void pg_exception_init(PyObject *module);
 
 /* pqcell.c */
-extern PyObject *PyPgCell_New(PyObject *, PyObject *, PyObject *);
-extern PyObject *PyPgCell_FromCell(PyObject *cell, PyObject *value);
+extern PyObject *PyPgCell_New(PGresult *, int);
+extern PyObject *PyPgCell_FromCell(PyPgCell *cell, PyObject *value);
 extern void pg_cell_init(PyObject *module);
-#define PyPgCell_Check(op) ((op)->ob_type == &PyPgCell_Type)
+extern int PyPgCell_Check(PyObject *);
+
+/* bytea.c */
+extern void pg_bytea_init(PyObject *module);
+extern int PyPgBytea_Check(PyObject *);

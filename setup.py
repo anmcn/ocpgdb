@@ -26,6 +26,7 @@ sources = [
     'oclibpq/pqexception.c',
     'oclibpq/pqresult.c',
     'oclibpq/pqcell.c',
+    'oclibpq/bytea.c',
     ]
 
 includes = [

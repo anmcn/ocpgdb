@@ -1,4 +1,5 @@
 import pgtype
+from oclibpq import bytea
 
 from_db = {}
 
@@ -15,6 +16,7 @@ set_from_db(pgtype.oid, int)
 set_from_db(pgtype.text, str)
 set_from_db(pgtype.varchar, str)
 set_from_db(pgtype.bpchar, str)
+set_from_db(pgtype.bytea, bytea)
 
 try:
     import decimal
