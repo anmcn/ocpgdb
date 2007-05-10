@@ -28,6 +28,7 @@ class Cursor:
             self._execute('CLOSE "%s"' % self.__name)
         self.description = None
         self.rowcount = -1
+        self.oidValue = None
 
     def close(self):
         self.reset()
@@ -63,20 +64,22 @@ class Cursor:
                       self._re_IN2.search(cmd) is None)
         if use_cursor:
             self.__connection.begin()
-            cmd = 'DECLARE "%s" CURSOR FOR %s' % (self.__name, cmd)
+            cmd = 'DECLARE "%s" CURSOR WITHOUT HOLD FOR %s' % (self.__name, cmd)
         result = self._execute(cmd, args)
-        print result.ntuples
+        self.result_type = result.result_type
         if result.result_type == 'DQL':
             self.__result = result
             self.rowcount = result.ntuples
             self.description = self._make_description(result)
         elif result.result_type == 'DML':
             self.rowcount = result.cmdTuples
+            self.oidValue = result.oid
         elif use_cursor:
             self.__cursor = True
             # We need to FETCH anyway to get the column descriptions.
             result = self._execute('FETCH 0 FROM "%s"' % self.__name)
             self.description = self._make_description(result)
+            self.result_type = result.result_type
         return self
 
     def _fetch(self, count=None):
@@ -117,17 +120,15 @@ class Cursor:
 
 
 class Connection(PgConnection):
-    _re_BEGIN = re.compile(r'^\s*BEGIN', re.IGNORECASE)
-    _re_ENDTX = re.compile(r'^\s*(COMMIT|ROLLBACK)', re.IGNORECASE)
 
     def __init__(self, *args, **kwargs):
+        # XXX Do something with args
         conninfo = ','.join(['%s=%s' % i for i in kwargs.items()])
         self.from_db = dict(fromdb.from_db)
         self.to_db = dict(to_db)
         PgConnection.__init__(self, conninfo)
         # This makes sure we can parse what comes out of the db..
         self._execute('SET datestyle TO ISO')
-        self.__intx = False
 
     def set_from_db(self, pgtype, fn):
         self.from_db[pgtype] = fn
@@ -169,12 +170,7 @@ class Connection(PgConnection):
 
     def _execute(self, cmd, args=()):
         args = self._args_to_db(args)
-        result = PgConnection.execute(self, cmd, args)
-        if self._re_BEGIN.match(cmd):
-            self.__intx = True
-        elif self._re_ENDTX.match(cmd):
-            self.__intx = False
-        return result
+        return PgConnection.execute(self, cmd, args)
 
     def _normalise_dict_args(self, cmd, dictargs):
         class DictArgs:
@@ -228,15 +224,15 @@ class Connection(PgConnection):
         return self._result_rows(self._execute(cmd, args))
 
     def begin(self):
-        if not self.__intx:
+        if self.transactionStatus == 'IDLE':
             self._execute('BEGIN WORK')
 
     def commit(self):
-        if self.__intx:
+        if self.transactionStatus != 'IDLE':
             self._execute('COMMIT WORK')
 
     def rollback(self):
-        if self.__intx:
+        if self.transactionStatus != 'IDLE':
             self._execute('ROLLBACK WORK')
 
     def cursor(self, name=None):

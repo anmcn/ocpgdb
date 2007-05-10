@@ -1,5 +1,10 @@
 - add "notice" support
 - implement executemany (use prepared statements?)
+- mx.DateTime support
+- PG "binary" type support
+- PG large object support
+- PG array support
+- tuple/set support
 - fallbacks for PQexecParams problem? Protocol 2 fallbacks (PQexec)?
 
   PQexecParams fundementally broken with a V7 server:

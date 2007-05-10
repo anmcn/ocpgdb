@@ -28,7 +28,7 @@ PyPgConnection_init(PyObject *o, PyObject *args, PyObject *kwds)
 			return -1;
 		else if (i > 0) {
 			PyErr_SetString(PyExc_TypeError,
-			    MODULE_NAME "PgConnection takes "
+			    MODULE_NAME ".PgConnection takes "
 			    "no keyword arguments");
 			return -1;
 		}
@@ -46,9 +46,15 @@ PyPgConnection_init(PyObject *o, PyObject *args, PyObject *kwds)
 		return -1;
 	}
 
-	if (PQstatus(cnx) != CONNECTION_OK)
-	{
+	if (PQstatus(cnx) != CONNECTION_OK) {
 		PyErr_SetString(PqErr_DatabaseError, PQerrorMessage(cnx));
+		PQfinish(cnx);
+		return -1;
+	}
+
+	if (PQprotocolVersion(cnx) < 3) {
+		PyErr_SetString(PqErr_DatabaseError, MODULE_NAME " requires "
+				"protocol 3 or greater server (7.4 and up)");
 		PQfinish(cnx);
 		return -1;
 	}
@@ -247,6 +253,22 @@ get_serverVersion(PyPgConnection *self)
 }
 
 static PyObject *
+get_transactionStatus(PyPgConnection *self)
+{
+	const char *status;
+	if (_not_open(self)) return NULL;
+	switch (PQtransactionStatus(self->connection)) {
+	case PQTRANS_IDLE:	status = "IDLE"; break;
+	case PQTRANS_ACTIVE:	status = "ACTIVE"; break;
+	case PQTRANS_INTRANS:	status = "INTRANS"; break;
+	case PQTRANS_INERROR:	status = "INERROR"; break;
+	case PQTRANS_UNKNOWN:
+	default:		status = "UNKNOWN"; break;
+	}
+	return PyString_FromString(status);
+}
+
+static PyObject *
 get_client_encoding(PyPgConnection *self)
 {
 	const char *enc;
@@ -290,6 +312,13 @@ static PyGetSetDef PyPgConnection_getset[] = {
 	{"port",		(getter)get_port},
 	{"protocolVersion",	(getter)get_protocolVersion},
 	{"serverVersion",	(getter)get_serverVersion},
+	{"transactionStatus",	(getter)get_transactionStatus, NULL,
+   "Returns the current in-transaction status of the server.\n\n"
+   "The status can be IDLE (currently idle), ACTIVE (a command is in\n"
+   "progress), INTRANS (idle, in a valid transaction block), or INERROR\n"
+   "(idle, in a failed transaction block). UNKNOWN is reported if the\n"
+   "connection is bad. ACTIVE is reported only when a query has been sent\n"
+   "to the server and not yet completed."},
 	{"tty",			(getter)get_tty},
 	{"user",		(getter)get_user},
 	{NULL}
