@@ -169,6 +169,7 @@ class Connection(PgConnection):
             cvt = self.to_db[type(value)]
         except KeyError:
             raise DataError('no to_db function for %r' % type(value))
+        return cvt(value)
         try:
             return cvt(value)
         except Exception, e:

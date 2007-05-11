@@ -14,6 +14,17 @@ set_to_db(long, pgtype.pack_int8)
 set_to_db(str, pgtype.pack_str)
 set_to_db(bytea, pgtype.pack_bytea)
 
+def XXX(value):
+    element_data = []
+    assert pgoid.array_types[pgoid._int4] == pgoid.int4
+    for element in value:
+        oid, data = pgtype.pack_int4(element)
+        assert oid == pgoid.int4
+        element_data.append(data)
+    return pgtype.pack_array(pgoid._int4, [len(element_data)], element_data)
+
+set_to_db(list, XXX)
+    
 def _set_py_datetime(setfn, integer_datetimes):
     import datetime
     if integer_datetimes:

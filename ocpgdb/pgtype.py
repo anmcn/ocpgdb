@@ -85,3 +85,23 @@ def unpack_numeric(buf):
     ndigits, weight, sign, dscale = struct.unpack('!hhhh', buf[:8])
     digits = buf[8:]
     return ndigits, weight, sign, dscale, digits
+
+#       number of dimensions (int4)
+#	flags (int4)
+#	element type id (Oid)
+#	for each dimension:
+#		dimension length (int4)
+#		dimension lower subscript bound (int4)
+#	for each array element:
+#		element value, in the appropriate format
+import operator
+def pack_array(oid, dims, element_data):
+    assert len(element_data) == reduce(operator.mul, dims)
+    data = []
+    data.append(struct.pack('!llL', len(dims), 0, pgoid.array_types[oid]))
+    for dim in dims:
+        data.append(struct.pack('!ll', dim, 0))
+    for element in element_data:
+        data.append(struct.pack('!l', len(element)))
+        data.append(element)
+    return oid, ''.join(data)
