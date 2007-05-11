@@ -125,18 +125,22 @@ class Connection(PgConnection):
 
     def __init__(self, *args, **kwargs):
         # XXX Do something with args
-        conninfo = ','.join(['%s=%s' % i for i in kwargs.items()])
-        self.from_db = dict(fromdb.from_db)
-        self.to_db = dict(to_db)
+        conninfo = ' '.join(['%s=%s' % i for i in kwargs.items()])
         PgConnection.__init__(self, conninfo)
         # This makes sure we can parse what comes out of the db..
         self._execute('SET datestyle TO ISO')
+        self.from_db = dict(fromdb.from_db)
+        self.to_db = dict(to_db)
+        self.use_py_datetime()
 
     def set_from_db(self, pgtype, fn):
         self.from_db[pgtype] = fn
 
-    def use_python_datetime(self):
-        fromdb._set_python_datetime(self.set_from_db)
+    def use_py_datetime(self):
+        fromdb._set_py_datetime(self.set_from_db, bool(self.integer_datetimes))
+
+    def use_mx_datetime(self):
+        fromdb._set_mx_datetime(self.set_from_db, bool(self.integer_datetimes))
 
     def _result_column(self, cell):
         if cell.value is None:
@@ -149,7 +153,7 @@ class Connection(PgConnection):
             try:
                 return cvt(cell.value)
             except Exception, e:
-                raise InternalError('failed to convert column value %r (column %r, value %r): %s' % (cell.value, cell.name, cell.type, e))
+                raise InternalError('failed to convert column value %r (column %r, type %r): %s' % (cell.value, cell.name, cell.type, e))
 
     def _result_row(self, row):
         return tuple([self._result_column(cell) for cell in row])

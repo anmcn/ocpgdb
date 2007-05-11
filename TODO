@@ -1,7 +1,6 @@
 - add "notice" support
 - implement executemany (use prepared statements?)
 - mx.DateTime support
-- PG "binary" type support
 - PG large object support
 - PG array support
 - tuple/set support

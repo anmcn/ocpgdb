@@ -17,12 +17,14 @@ PyPgCell_dealloc(PyPgCell *self)
 static PyObject *
 PyPgCell_repr(PyPgCell *self)
 {
-	return PyString_FromFormat("<PyPgCell name '%s', type %ld, modifier %ld, value '%s' at %p>",
+	PyObject *value_repr = PyObject_Repr(self->value);
+	if (value_repr == NULL)
+		return NULL;
+	return PyString_FromFormat("<PyPgCell name '%s', type %ld, modifier %ld, value %s at %p>",
 				   PyString_AsString(self->name),
 				   PyInt_AsLong(self->type),
 				   PyInt_AsLong(self->modifier),
-				   (self->value == Py_None ? "" :
-					PyString_AsString(self->value)),
+				   PyString_AsString(value_repr),
 				   self);
 
 }

@@ -58,6 +58,17 @@ PyPgConnection_init(PyObject *o, PyObject *args, PyObject *kwds)
 		PQfinish(cnx);
 		return -1;
 	}
+	/*
+	 * Serious issues exist with 7.4's protocol 3 implementation:
+	 *    - no way t determine if server is using float or int datetimes
+	 *    - cursors with parameters fail when fetching (bind lost)
+	 */
+	if (PQserverVersion(cnx) < 80000) {
+		PyErr_SetString(PqErr_DatabaseError, MODULE_NAME " does not "
+				"support servers < v8.0");
+		PQfinish(cnx);
+		return -1;
+	}
 
 	self->connection = cnx;
 	if ((self->conninfo = PyString_FromString(conninfo)) == NULL)
@@ -190,7 +201,7 @@ connection_execute(PyPgConnection *self, PyObject *args)
 
 	Py_BEGIN_ALLOW_THREADS
 	res = PQexecParams(self->connection, query, nParams, NULL,
-			   paramValues, paramLengths, paramFormats, 0);
+			   paramValues, paramLengths, paramFormats, 1);
 	Py_END_ALLOW_THREADS
 
 	result = PyPgResult_New(self, res);
@@ -305,19 +316,32 @@ get_transactionStatus(PyPgConnection *self)
 }
 
 static PyObject *
-get_client_encoding(PyPgConnection *self)
+_get_parameter(PyPgConnection *self, char *parameter)
 {
-	const char *enc;
+	const char *value;
 
 	if (_not_open(self)) return NULL;
-	enc = PQparameterStatus(self->connection, "client_encoding");
-	if (enc == NULL) {
+	value = PQparameterStatus(self->connection, parameter);
+	if (value == NULL) {
 		Py_INCREF(Py_None);
 		return Py_None;
 	}
 	else
-		return PyString_FromString(enc);
+		return PyString_FromString(value);
 }
+
+static PyObject *
+get_client_encoding(PyPgConnection *self)
+{
+	return _get_parameter(self, "client_encoding");
+}
+
+static PyObject *
+get_integer_datetimes(PyPgConnection *self)
+{
+	return _get_parameter(self, "integer_datetimes");
+}
+
 
 
 static PyMethodDef PyPgConnection_methods[] = {
@@ -343,6 +367,7 @@ static PyGetSetDef PyPgConnection_getset[] = {
 	{"closed",		(getter)get_closed},
 	{"db",			(getter)get_db},
 	{"host",		(getter)get_host},
+	{"integer_datetimes",	(getter)get_integer_datetimes},
 	{"options",		(getter)get_options},
 	{"password",		(getter)get_password},
 	{"port",		(getter)get_port},
