@@ -29,6 +29,9 @@
                 }				\
         } while (0)
 #endif
+#if (PY_VERSION_HEX < 0x02050000)
+typedef int Py_ssize_t;
+#endif
 
 #define MODULE_NAME "oclibpq"
 

@@ -4,11 +4,7 @@ import re
 # Module
 from oclibpq import *
 import fromdb
-
-to_db = {                      # XXX this is a placeholder
-    bytea: lambda x: x,
-}
-
+import todb
 
 class Cursor:
     _re_DQL = re.compile(r'^\s*SELECT\s', re.IGNORECASE)
@@ -130,17 +126,21 @@ class Connection(PgConnection):
         # This makes sure we can parse what comes out of the db..
         self._execute('SET datestyle TO ISO')
         self.from_db = dict(fromdb.from_db)
-        self.to_db = dict(to_db)
+        self.to_db = dict(todb.to_db)
         self.use_py_datetime()
 
     def set_from_db(self, pgtype, fn):
         self.from_db[pgtype] = fn
 
+    def set_to_db(self, pytype, fn):
+        self.to_db[pytype] = fn
+
     def use_py_datetime(self):
         fromdb._set_py_datetime(self.set_from_db, bool(self.integer_datetimes))
+        todb._set_py_datetime(self.set_to_db, bool(self.integer_datetimes))
 
     def use_mx_datetime(self):
-        fromdb._set_mx_datetime(self.set_from_db, bool(self.integer_datetimes))
+        todb._set_mx_datetime(self.set_to_db, bool(self.integer_datetimes))
 
     def _result_column(self, cell):
         if cell.value is None:
@@ -165,7 +165,10 @@ class Connection(PgConnection):
     def _value_to_db(self, value):
         if value is None:
             return None
-        cvt = self.to_db.get(type(value), str)
+        try:
+            cvt = self.to_db[type(value)]
+        except KeyError:
+            raise DataError('no to_db function for %r' % type(value))
         try:
             return cvt(value)
         except Exception, e:

@@ -65,7 +65,7 @@ PyPgConnection_init(PyObject *o, PyObject *args, PyObject *kwds)
 	 */
 	if (PQserverVersion(cnx) < 80000) {
 		PyErr_SetString(PqErr_DatabaseError, MODULE_NAME " does not "
-				"support servers < v8.0");
+				"support pre v8 servers");
 		PQfinish(cnx);
 		return -1;
 	}
@@ -126,6 +126,38 @@ connection_close(PyPgConnection *self, PyObject *unused)
 	return Py_None;
 }
 
+/* Extract 3-tuple parameters */
+static int
+_param_tuple(PyObject *param, Oid *oid, char **str, int *len)
+{
+	PyObject *o;
+	Py_ssize_t l;
+
+	if (PyTuple_Size(param) != 2) {
+		PyErr_SetString(PyExc_TypeError, 
+			"parameters must be a 2-tuple");
+		return -1;
+	}
+
+	o = PyTuple_GET_ITEM(param, 0);
+	if (!PyInt_Check(o)) {
+		PyErr_SetString(PyExc_TypeError, 
+			"parameter 2-tuple element 0 must be integer OID");
+		return -1;
+	}
+	*oid = PyInt_AsLong(o);
+	o = PyTuple_GET_ITEM(param, 1);
+	if (!PyString_Check(o)) {
+		PyErr_SetString(PyExc_TypeError, 
+			"parameter 2-tuple element 1 must be str type");
+		return -1;
+	}
+	if (PyString_AsStringAndSize(o, str, &l) < 0)
+		return -1;
+	*len = l;
+	return 0;
+}
+
 static PyObject *
 connection_execute(PyPgConnection *self, PyObject *args) 
 {
@@ -134,7 +166,7 @@ connection_execute(PyPgConnection *self, PyObject *args)
 	int nParams;
 	int n;
 	Oid *paramTypes = NULL;
-	const char **paramValues = NULL;
+	char **paramValues = NULL;
 	int *paramLengths = NULL;
 	int *paramFormats = NULL;
 	PGresult *res;
@@ -177,17 +209,13 @@ connection_execute(PyPgConnection *self, PyObject *args)
 			goto error;
 		if (param == Py_None) {
 			/* */
-		} else if (PyPgBytea_Check(param)) {
-			char *str;
-			Py_ssize_t len;
-			if (PyString_AsStringAndSize(param, &str, &len) < 0) {
+		} else if (PyTuple_Check(param)) {
+			if (_param_tuple(param, &paramTypes[n], &paramValues[n],
+					 &paramLengths[n]) < 0) {
 				Py_DECREF(param);
 				goto error;
 			}
-			paramValues[n] = str;
-			paramLengths[n] = len;
 			paramFormats[n] = 1;
-			paramTypes[n] = 17;
 		} else {
 			char *str;
 			if ((str = PyString_AsString(param)) == NULL) {
@@ -200,8 +228,9 @@ connection_execute(PyPgConnection *self, PyObject *args)
 	}
 
 	Py_BEGIN_ALLOW_THREADS
-	res = PQexecParams(self->connection, query, nParams, NULL,
-			   paramValues, paramLengths, paramFormats, 1);
+	res = PQexecParams(self->connection, query, nParams, paramTypes,
+			   (const char **)paramValues, paramLengths, 
+			   paramFormats, 1);
 	Py_END_ALLOW_THREADS
 
 	result = PyPgResult_New(self, res);
