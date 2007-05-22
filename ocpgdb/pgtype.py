@@ -94,9 +94,7 @@ def unpack_numeric(buf):
 #		dimension lower subscript bound (int4)
 #	for each array element:
 #		element value, in the appropriate format
-import operator
-def pack_array(oid, dims, element_data):
-    assert len(element_data) == reduce(operator.mul, dims)
+def _pack_array(oid, dims, element_data):
     data = []
     data.append(struct.pack('!llL', len(dims), 0, pgoid.array_types[oid]))
     for dim in dims:
@@ -105,3 +103,11 @@ def pack_array(oid, dims, element_data):
         data.append(struct.pack('!l', len(element)))
         data.append(element)
     return oid, ''.join(data)
+
+def pack_int_array(array):
+    element_data = []
+    for element in array:
+        oid, data = pgtype.pack_int4(element)
+        assert oid == pgoid.int4
+        element_data.append(data)
+    return _pack_array(pgoid._int4, [len(element_data)], element_data)

@@ -1,0 +1,27 @@
+def c(value, type): 
+    return list(ocpgdb.PgConnection.execute(d, "select '%s'::%s" % (value, type), ()))[0][0]
+
+list(d.execute("select '2002-03-04 11:22:33.44'::timestamp"))
+
+-------------------------------------------------------------------------------
+From: Tom Lane <tgl ( at ) sss ( dot ) pgh ( dot ) pa ( dot ) us>
+To: John DeSoi <desoi ( at ) pgedit ( dot ) com>
+Subject: Re: row description, protocol 3
+Date: Tue, 28 Feb 2006 01:42:26 -0500
+John DeSoi <desoi ( at ) pgedit ( dot ) com> writes:
+> On Feb 28, 2006, at 12:53 AM, Josh Close wrote:
+>> Where can I get the data type from the row description?
+
+> The oid maps to the pg_type table:
+> select oid, typname from pg_type order by oid;
+
+Also, the format_type function might be useful:
+
+regression=# select format_type(1042, 44);
+  format_type  
+---------------
+ character(40)
+(1 row)
+
+			regards, tom lane
+

@@ -54,6 +54,8 @@ oclibpq_module = Extension(
     include_dirs=includes,
     library_dirs=library_dirs,
     libraries=libraries,
+#    extra_compile_args=["-pg"],
+#    extra_link_args=["-pg"],
 )
 
 setup(
