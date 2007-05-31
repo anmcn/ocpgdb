@@ -173,6 +173,8 @@ connection_execute(PyPgConnection *self, PyObject *args)
 	PyObject *result = NULL;
 
 
+	if (_not_open(self)) return NULL;
+
 	if (!PyArg_ParseTuple(args,"sO:execute", &query, &params)) 
 		return NULL;
 
@@ -465,6 +467,21 @@ pg_connection_init(PyObject *module)
 {
 	if (PyType_Ready(&PyPgConnection_Type) < 0)
 		return;
+#define ADDEXC(n, v) \
+	Py_INCREF(v); \
+	if (PyDict_SetItemString(PyPgConnection_Type.tp_dict, n, v) < 0)\
+		return;
+	ADDEXC("Warning", PqErr_Warning)
+	ADDEXC("Error", PqErr_Error)
+	ADDEXC("InterfaceError", PqErr_InterfaceError)
+	ADDEXC("DatabaseError", PqErr_DatabaseError)
+	ADDEXC("DataError", PqErr_DataError)
+	ADDEXC("OperationalError", PqErr_OperationalError)
+	ADDEXC("IntegrityError", PqErr_IntegrityError)
+	ADDEXC("InternalError", PqErr_InternalError)
+	ADDEXC("ProgrammingError", PqErr_ProgrammingError)
+	ADDEXC("NotSupportedError", PqErr_NotSupportedError)
+#undef ADDEXC
 	Py_INCREF(&PyPgConnection_Type);
 	PyModule_AddObject(module, "PgConnection", 
 			   (PyObject *)&PyPgConnection_Type);
