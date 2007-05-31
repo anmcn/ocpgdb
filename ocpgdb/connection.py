@@ -12,7 +12,7 @@ class Cursor:
     _re_IN2 = re.compile(r'\sINTO\s', re.IGNORECASE)
 
     def __init__(self, connection, name=None):
-        self.__connection = connection
+        self.connection = connection
         if name is None:
             name = 'OcPy_%08X' % id(self)
         self.__name = name
@@ -22,7 +22,7 @@ class Cursor:
 
     def reset(self):
         self.__result = None
-        if self.__connection is not None and self.__cursor:
+        if self.connection is not None and self.__cursor:
             self._execute('CLOSE "%s"' % self.__name)
         self.description = None
         self.rowcount = -1
@@ -30,14 +30,14 @@ class Cursor:
 
     def close(self):
         self.reset()
-        self.__connection = None
+        self.connection = None
 
     def __del__(self):
-        if getattr(self, '__connection', None) is not None:
+        if getattr(self, 'connection', None) is not None:
             self.close()
 
     def _assert_open(self):
-        if self.__connection is None:
+        if self.connection is None:
             raise ProgrammingError("Cursor not open")
 
     def setinputsizes(self, sizes):
@@ -47,7 +47,7 @@ class Cursor:
         pass
 
     def _execute(self, cmd, args=()):
-        return self.__connection._execute(cmd, args)
+        return self.connection._execute(cmd, args)
 
     def _make_description(self, result):
         return [(col.name, col.type, None, None, None, None, None)
@@ -56,12 +56,12 @@ class Cursor:
     def execute(self, cmd, *args, **kwargs):
         self._assert_open()
         self.reset()
-        cmd, args = self.__connection._normalise_args(cmd, args, kwargs)
+        cmd, args = self.connection._normalise_args(cmd, args, kwargs)
         use_cursor = (self._re_DQL.match(cmd) is not None and
                       self._re_4UP.search(cmd) is None and 
                       self._re_IN2.search(cmd) is None)
         if use_cursor:
-            self.__connection.begin()
+            self.connection.begin()
             cmd = 'DECLARE "%s" CURSOR WITHOUT HOLD FOR %s' % (self.__name, cmd)
         result = self._execute(cmd, args)
         self.result_type = result.result_type
@@ -89,7 +89,7 @@ class Cursor:
                 raise ProgrammingError('Fetch count must be an integer')
         if self.__result:
             rows = self.__result
-            rr = self.__connection._result_row
+            rr = self.connection._result_row
             if count is not None:
                 rows = itertools.islice(self.__result, count)
             return [rr(row) for row in rows]
@@ -97,7 +97,7 @@ class Cursor:
             if count is None:
                 count = 'ALL'
             result = self._execute('FETCH %s FROM "%s"' % (count, self.__name))
-            return self.__connection._result_rows(result)
+            return self.connection._result_rows(result)
         else:
             raise ProgrammingError('No results pending')
 
@@ -121,6 +121,8 @@ class Connection(PgConnection):
 
     def __init__(self, *args, **kwargs):
         # XXX Do something with args
+        if 'database' in kwargs:
+            kwargs['dbname'] = kwargs.pop('database')
         conninfo = ' '.join(['%s=%s' % i for i in kwargs.items()])
         PgConnection.__init__(self, conninfo)
         # This makes sure we can parse what comes out of the db..
