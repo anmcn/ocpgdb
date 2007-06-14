@@ -22,7 +22,8 @@ class Cursor:
 
     def reset(self):
         self.__result = None
-        if self.connection is not None and self.__cursor:
+        if (self.connection is not None and not self.connection.closed 
+            and self.__cursor):
             self._execute('CLOSE "%s"' % self.__name)
         self.description = None
         self.rowcount = -1
@@ -34,7 +35,10 @@ class Cursor:
 
     def __del__(self):
         if getattr(self, 'connection', None) is not None:
-            self.close()
+            try:
+                self.close()
+            except DatabaseError:
+                pass
 
     def _assert_open(self):
         if self.connection is None:
