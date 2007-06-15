@@ -18,13 +18,15 @@ class Cursor:
         self.__name = name
         self.__cursor = False
         self.reset()
-        self.arraysize = 10
+        self.arraysize = 1     # Dim-witted DBAPI default rowcount for fetchmany
 
     def reset(self):
         self.__result = None
-        if (self.connection is not None and not self.connection.closed 
-            and self.__cursor):
+        if self.connection is None or self.connection.closed:
+            raise ProgrammingError('Cursor is closed')
+        if self.__cursor:
             self._execute('CLOSE "%s"' % self.__name)
+            self.__cursor = False
         self.description = None
         self.rowcount = -1
         self.oidValue = None
@@ -123,8 +125,9 @@ class Cursor:
 
 class Connection(PgConnection):
 
-    def __init__(self, *args, **kwargs):
-        # XXX Do something with args
+    def __init__(self, **kwargs):
+        # Positional connection arguments are a horrible idea - only support
+        # keyword args until convinced otherwise.
         if 'database' in kwargs:
             kwargs['dbname'] = kwargs.pop('database')
         conninfo = ' '.join(['%s=%s' % i for i in kwargs.items()])

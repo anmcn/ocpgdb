@@ -121,6 +121,7 @@ PyPgConnection_dealloc(PyObject *o)
 static PyObject *
 connection_close(PyPgConnection *self, PyObject *unused) 
 {
+	if (_not_open(self)) return NULL;
 	_finish(self);
 	Py_INCREF(Py_None);
 	return Py_None;

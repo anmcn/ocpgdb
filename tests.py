@@ -6,8 +6,23 @@ scratch_db = dict(dbname='ocpgdb_test', port=5433)
 
 
 class BasicTests(unittest.TestCase):
-
     def test_module_const(self):
+        mandatory_attrs = (
+            # General info:
+            'apilevel', 'threadsafety', 'paramstyle', '__version__', 
+            # Exceptions:
+            'Warning', 'Error', 
+            'InterfaceError', 'DatabaseError', 
+            'DataError', 'OperationalError', 'IntegrityError', 'InternalError',
+            'ProgrammingError', 'NotSupportedError',
+            # Type support:
+            'Binary', 'Date', 'Time', 'Timestamp', 
+            'DateFromTicks', 'TimestampFromTicks', 'TimeFromTicks',
+            'STRING', 'BINARY', 'NUMBER', 'DATETIME', 'ROWID',
+        )
+        for attr in mandatory_attrs:
+            self.failUnless(hasattr(ocpgdb, attr), 
+                'Module does not export mandatory attribute %r' % attr)
         self.failUnless(issubclass(ocpgdb.Warning, StandardError))
         self.failUnless(issubclass(ocpgdb.Error, StandardError))
         self.failUnless(issubclass(ocpgdb.InterfaceError, ocpgdb.Error))
@@ -21,7 +36,6 @@ class BasicTests(unittest.TestCase):
         self.assertEqual(ocpgdb.apilevel, '2.0')
         self.assertEqual(ocpgdb.threadsafety, 1)
         self.assertEqual(ocpgdb.paramstyle, 'pyformat')
-        self.failUnless(hasattr(ocpgdb, '__version__'))
 
     def test_connect(self):
         c = ocpgdb.connect(**scratch_db)
@@ -50,7 +64,7 @@ class BasicTests(unittest.TestCase):
         self.assertRaises(ocpgdb.ProgrammingError, c.fileno)
         self.assertRaises(ocpgdb.ProgrammingError, getattr, c, 'protocolVersion')
         self.assertRaises(ocpgdb.ProgrammingError, getattr, c, 'serverVersion')
-        c.close()
+        self.assertRaises(ocpgdb.ProgrammingError, c.close)
 
 
 class BasicSuite(unittest.TestSuite):
