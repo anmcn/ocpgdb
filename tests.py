@@ -1,6 +1,11 @@
 import sys
 import unittest
 import ocpgdb
+try:
+    from mx import DateTime
+    have_mx = True
+except ImportError:
+    have_mx = False
 
 scratch_db = dict(dbname='ocpgdb_test', port=5433)
 
@@ -187,7 +192,6 @@ class ConversionTests(unittest.TestCase):
     def test_py_datetime(self):
         import datetime
         db = ocpgdb.connect(**scratch_db)
-        db.use_py_datetime()
         try:
             self._test(db, None, 'timestamp')
             self._test(db, datetime.datetime(2007,5,8,15,9,32,23), 'timestamp')
@@ -199,7 +203,6 @@ class ConversionTests(unittest.TestCase):
     def test_py_time(self):
         import datetime
         db = ocpgdb.connect(**scratch_db)
-        db.use_py_datetime()
         try:
             self._test(db, None, 'time')
             self._test(db, datetime.time(15,9,32,23), 'time')
@@ -211,7 +214,6 @@ class ConversionTests(unittest.TestCase):
     def test_py_date(self):
         import datetime
         db = ocpgdb.connect(**scratch_db)
-        db.use_py_datetime()
         try:
             self._test(db, None, 'date')
             self._test(db, datetime.date(2007,5,8), 'date')
@@ -225,7 +227,6 @@ class ConversionTests(unittest.TestCase):
         def test_py_interval(self):
             import datetime
             db = ocpgdb.connect(**scratch_db)
-            db.use_py_datetime()
             try:
                 self._test(db, None, 'interval')
                 self._test(db, datetime.timedelta(0,0,0,0,0), 'interval')
@@ -237,6 +238,80 @@ class ConversionTests(unittest.TestCase):
                 self._test(db, datetime.timedelta(days=-1, seconds=-1), 'interval')
             finally:
                 db.close()
+
+    def _test_mx(self, db, input, pgtype, expect=None, expect_type=None):
+        # mx.DateTime has a precission of 10ms, so we need to account for
+        # rounding errors.
+        if expect is None:
+            expect = input
+        rows = list(db.execute("select %s::" + pgtype, input))
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(len(rows[0]), 1)
+        value = rows[0][0]
+        if expect is None and value is None:
+            return
+        self.failIf(DateTime.cmp(expect, value, 0.01), 
+                    'expect %s, got %s' % (expect, value))
+
+    def test_mx_datetime(self):
+        db = ocpgdb.connect(use_mx_datetime=True, **scratch_db)
+        try:
+            self._test_mx(db, None, 'timestamp')
+            self._test_mx(db, DateTime.DateTime(2007,5,8,15,9,32.24), 
+                            'timestamp')
+            self._test_mx(db, DateTime.DateTime(1900,5,8,15,9,32.24), 
+                            'timestamp')
+            self._test_mx(db, DateTime.DateTime(2200,5,8,15,9,32.24), 
+                            'timestamp')
+        finally:
+            db.close()
+
+    def test_mx_time(self):
+        db = ocpgdb.connect(use_mx_datetime=True, **scratch_db)
+        try:
+            self._test_mx(db, None, 'time')
+            self._test_mx(db, DateTime.Time(15,9,32.23), 'time')
+            self._test_mx(db, DateTime.Time(0,0,0.0), 'time')
+            self._test_mx(db, DateTime.Time(23,59,59.99), 'time')
+        finally:
+            db.close()
+
+    def test_mx_date(self):
+        db = ocpgdb.connect(use_mx_datetime=True, **scratch_db)
+        try:
+            self._test_mx(db, None, 'date')
+            self._test_mx(db, DateTime.Date(2007,5,8), 'date')
+            self._test_mx(db, DateTime.Date(1900,5,8), 'date')
+            self._test_mx(db, DateTime.Date(2200,5,8), 'date')
+        finally:
+            db.close()
+
+    def test_mx_interval(self):
+        db = ocpgdb.connect(use_mx_datetime=True, **scratch_db)
+        try:
+            rd = DateTime.RelativeDateTime
+            self._test(db, None, 'interval')
+            self._test(db, rd(), 'interval')
+            self._test(db, rd(seconds=1), 'interval')
+            self._test(db, rd(seconds=-1), 'interval')
+            self._test(db, rd(days=1), 'interval')
+            self._test(db, rd(days=-1), 'interval')
+            self._test(db, rd(months=1), 'interval')
+            self._test(db, rd(months=-1), 'interval')
+            self._test(db, rd(years=1), 'interval')
+            self._test(db, rd(years=-1), 'interval')
+            self._test(db, rd(minutes=1, seconds=1), 'interval')
+            self._test(db, rd(minutes=-1, seconds=1), 'interval',
+                           rd(seconds=-59))
+            self._test(db, rd(minutes=1, seconds=-1), 'interval',
+                           rd(seconds=59))
+            self._test(db, rd(minutes=-1, seconds=-1), 'interval')
+            self._test(db, rd(years=1, seconds=1), 'interval')
+            self._test(db, rd(years=-1, seconds=1), 'interval')
+            self._test(db, rd(years=1, seconds=-1), 'interval')
+            self._test(db, rd(years=-1, seconds=-1), 'interval')
+        finally:
+            db.close()
 
 class ConversionSuite(unittest.TestSuite):
     tests = [
@@ -251,6 +326,13 @@ class ConversionSuite(unittest.TestSuite):
         'test_py_date',
 #        'test_py_interval',
     ]
+    if have_mx:
+        tests.extend([
+        'test_mx_datetime',
+        'test_mx_time',
+        'test_mx_date',
+        'test_mx_interval',
+        ])
     def __init__(self):
         unittest.TestSuite.__init__(self, map(ConversionTests, self.tests))
 

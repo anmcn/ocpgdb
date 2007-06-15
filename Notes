@@ -1,5 +1,5 @@
 def c(value, type): 
-    return list(ocpgdb.PgConnection.execute(d, "select '%s'::%s" % (value, type), ()))[0][0]
+    return list(ocpgdb.PgConnection.execute(db, "select '%s'::%s" % (value, type), ()))[0][0]
 
 list(d.execute("select '2002-03-04 11:22:33.44'::timestamp"))
 

@@ -1,6 +1,7 @@
 # Standard library
 import itertools
 import re
+import types
 # Module
 from oclibpq import *
 import fromdb
@@ -124,19 +125,40 @@ class Cursor:
 
 
 class Connection(PgConnection):
-
     def __init__(self, **kwargs):
+        """
+        Connect to PostgreSQL database
+
+        All arguments are optional, and include:
+            host                Hostname
+            port                TCP/IP port
+            dbname              Database name
+            database            Alias for dbname
+            user                User name
+            password            Password
+            connect_timeout     Connect timeout in seconds (optional)
+            sslmode
+                disable         only unencrypted SSL connection
+                allow           first try non-SSL, then SSL connection
+                prefer          (the default) first try SSL, then non-SSL
+                require         require an SSL connection
+            use_mx_datetime     accept and return mx.DateTime types
+        """
         # Positional connection arguments are a horrible idea - only support
         # keyword args until convinced otherwise.
         if 'database' in kwargs:
             kwargs['dbname'] = kwargs.pop('database')
+        use_mx_datetime = kwargs.pop('use_mx_datetime', False)
         conninfo = ' '.join(['%s=%s' % i for i in kwargs.items()])
         PgConnection.__init__(self, conninfo)
         # This makes sure we can parse what comes out of the db..
         self._execute('SET datestyle TO ISO')
         self.from_db = dict(fromdb.from_db)
         self.to_db = dict(todb.to_db)
-        self.use_py_datetime()
+        if use_mx_datetime:
+            self.use_mx_datetime()
+        else:
+            self.use_py_datetime()
 
     def set_from_db(self, pgtype, fn):
         self.from_db[pgtype] = fn
@@ -149,6 +171,7 @@ class Connection(PgConnection):
         todb._set_py_datetime(self.set_to_db, bool(self.integer_datetimes))
 
     def use_mx_datetime(self):
+        fromdb._set_mx_datetime(self.set_from_db, bool(self.integer_datetimes))
         todb._set_mx_datetime(self.set_to_db, bool(self.integer_datetimes))
 
     def _result_column(self, cell):
@@ -175,7 +198,10 @@ class Connection(PgConnection):
         if value is None:
             return None
         try:
-            cvt = self.to_db[type(value)]
+            vtype = type(value)
+            if vtype is types.InstanceType:
+                vtype = value.__class__
+            cvt = self.to_db[vtype]
         except KeyError:
             raise DataError('no to_db function for %r' % type(value))
         return cvt(value)
@@ -260,3 +286,4 @@ class Connection(PgConnection):
 
 def connect(*args, **kwargs):
     return Connection(*args, **kwargs)
+connect.__doc__ = Connection.__init__.__doc__
