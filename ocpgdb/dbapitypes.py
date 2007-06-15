@@ -1,8 +1,8 @@
 from oclibpq import *
 
 __all__ = (
-    'Binary', 'Date', 'Time', 'DateFromTicks', 'DateTimeFromTicks', 
-    'TimeFromTicks',
+    'Binary', 'Date', 'Time', 'Timestamp', 
+    'DateFromTicks', 'TimestampFromTicks', 'TimeFromTicks',
     'STRING', 'BINARY', 'NUMBER', 'DATETIME', 'ROWID',
 )
 
@@ -11,8 +11,9 @@ Binary = bytea
 import datetime
 Date = datetime.date
 Time = datetime.time
+Timestamp = datetime.datetime
 DateFromTicks = datetime.date.fromtimestamp
-DateTimeFromTicks = datetime.datetime.fromtimestamp
+TimestampFromTicks = datetime.datetime.fromtimestamp
 def TimeFromTicks(t):
     t, fract = divmod(t, 1)
     t, seconds = divmod(int(t), 60)
