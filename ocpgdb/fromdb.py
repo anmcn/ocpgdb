@@ -19,8 +19,7 @@ set_from_db(pgoid.text, str)
 set_from_db(pgoid.varchar, str)
 set_from_db(pgoid.bpchar, str)
 set_from_db(pgoid.bytea, bytea)
-
-# Not sure how to handle pgoid.numeric
+set_from_db(pgoid.numeric, pgtype.unpack_numeric)
 
 def _set_py_datetime(setfn, integer_datetimes):
     import datetime

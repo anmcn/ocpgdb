@@ -155,18 +155,35 @@ class FromDBTests(unittest.TestCase):
         finally:
             db.close()
 
-# Currently broken
-#    def test_decimal(self):
-#        import decimal
-#        db = ocpgdb.connect(**scratch_db)
-#        try:
-#            self._test(db, None, 'numeric')
-#            self._test(db, decimal.Decimal('0'), 'numeric')
-#            self._test(db, decimal.Decimal('0.0000'), 'numeric')
-#            self._test(db, decimal.Decimal('0.000000000000000000000000000000000001'), 'numeric')
-##            self._test(db, decimal.Decimal('NaN'), 'numeric')
-#        finally:
-#            db.close()
+    def test_decimal(self):
+        import decimal
+        d = decimal.Decimal
+        db = ocpgdb.connect(**scratch_db)
+        values = [
+            '0',                # 0 words
+            '0.0000',           # 0 words, weight 0, dscale 4
+            '1',                # 1 word
+            '1000',             # 1 word
+            '10000',            # 1 word, weight 1, dscale 0
+            '.001',             # 1 word, weight -1, dscale 3
+            '.0001',            # 1 word, weight -1, dscale 4
+            '10001',            # 2 words, weight 1, dscale 0
+            '10001.001',        # 3 words, weight 1, dscale 3
+            '10001.0001',       # 3 words, weight 1, dscale 4
+            '1e1000',           # 1 word, weight 250, dscale 0
+            '1e-1000',          # 1 word, weight -250, dscale 1000
+        ]
+        try:
+            for value in values:
+                self._test(db, value, 'numeric', decimal.Decimal(value))
+                self._test(db, '-'+value, 'numeric', decimal.Decimal('-'+value))
+# equality doesn't work with NaN, so we have to do it explicitly
+#            self._test(db, 'NaN', 'numeric', decimal.Decimal('NaN'))
+            nan = list(db.execute("select 'NaN'::numeric"))[0][0]
+            self.failUnless(isinstance(nan, decimal.Decimal))
+            self.assertEqual(str(nan), 'NaN')
+        finally:
+            db.close()
 
     def test_py_datetime(self):
         import datetime
@@ -262,10 +279,14 @@ class FromDBTests(unittest.TestCase):
                             rd(seconds=59))
             self._test(db, '-1 minute, -1 seconds', 'interval', 
                             rd(minutes=-1, seconds=-1))
-            self._test(db, '1 year, 1 second', 'interval', rd(years=1, seconds=1))
-            self._test(db, '-1 year, 1 second', 'interval', rd(years=-1, seconds=1))
-            self._test(db, '1 year, -1 second', 'interval', rd(years=1, seconds=-1))
-            self._test(db, '-1 year, -1 second', 'interval', rd(years=-1, seconds=-1))
+            self._test(db, '1 year, 1 second', 'interval', 
+                            rd(years=1, seconds=1))
+            self._test(db, '-1 year, 1 second', 'interval', 
+                            rd(years=-1, seconds=1))
+            self._test(db, '1 year, -1 second', 'interval', 
+                            rd(years=1, seconds=-1))
+            self._test(db, '-1 year, -1 second', 'interval', 
+                            rd(years=-1, seconds=-1))
         finally:
             db.close()
 
@@ -276,7 +297,7 @@ class FromDBSuite(unittest.TestSuite):
         'test_float',
         'test_str',
         'test_bytea',
-#        'test_decimal',
+        'test_decimal',
         'test_py_datetime',
         'test_py_time',
         'test_py_date',

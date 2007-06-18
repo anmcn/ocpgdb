@@ -1,5 +1,6 @@
 # Standard Python Libs
 import struct
+import decimal
 # Module libs
 from oclibpq import bytea
 import pgoid
@@ -81,10 +82,38 @@ unpack_flt_date, pack_flt_date = _mk_fns(pgoid.date, '!f')
 unpack_int_interval, pack_int_interval = _make_tuple_fns(pgoid.interval, '!qll')
 unpack_flt_interval, pack_flt_interval = _make_tuple_fns(pgoid.interval, '!dll')
 
+NUMERIC_POS = 0x0000
+NUMERIC_NEG = 0x4000
+NUMERIC_NAN = 0xC000
 def unpack_numeric(buf):
-    ndigits, weight, sign, dscale = struct.unpack('!hhhh', buf[:8])
-    digits = buf[8:]
-    return ndigits, weight, sign, dscale, digits
+    def unpack_digits(words):
+        shift = (1000, 100, 10, 1)
+        digits = []
+        for word in words:
+            for s in shift:
+                d = word / s % 10
+                if digits or d:
+                    digits.append(d)
+        return tuple(digits)
+    ndigits, weight, sign, dscale = struct.unpack('!HhHH', buf[:8])
+    words = struct.unpack('!%dH' % ndigits, buf[8:])
+    digits = unpack_digits(words)
+    # XXX Fix
+    if sign == NUMERIC_POS:
+        sign = 0
+    elif sign == NUMERIC_NEG:
+        sign = 1
+    elif sign == NUMERIC_NAN:
+        return decimal.Decimal('NaN')
+    else:
+        raise ValueError('Invalid numeric sign: %0x' % sign)
+    if sign == 16384:
+        sign = 1
+    cull = (4 - dscale) % 4
+    exp = (weight + 1 - ndigits) * 4 + cull
+    if cull:
+        digits = digits[:-cull]
+    return decimal.Decimal((sign, digits, exp))
 
 #       number of dimensions (int4)
 #	flags (int4)
