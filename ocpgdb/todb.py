@@ -1,3 +1,4 @@
+import decimal
 # Module specific
 import pgoid, pgtype
 from oclibpq import bytea
@@ -13,6 +14,7 @@ set_to_db(int, pgtype.pack_int4)
 set_to_db(long, pgtype.pack_int8)
 set_to_db(str, pgtype.pack_str)
 set_to_db(bytea, pgtype.pack_bytea)
+set_to_db(decimal.Decimal, pgtype.pack_numeric)
 
 # Experimental array packing - needs much more work...
 def XXX(value):

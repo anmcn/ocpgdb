@@ -115,6 +115,39 @@ def unpack_numeric(buf):
         digits = digits[:-cull]
     return decimal.Decimal((sign, digits, exp))
 
+def pack_numeric(num):
+    def pack_digits(digits):
+        words = []
+        shift = 1, 10, 100, 1000
+        i = len(digits)
+        while i > 0:
+            word = 0
+            for s in shift:
+                i -= 1
+                word += digits[i] * s
+                if i == 0:
+                    break
+            words.insert(0, word)
+        return tuple(words)
+    sign, digits, exp = num.as_tuple()
+    if exp == 'n':
+        return struct.pack('!HhHH', 0, 0, NUMERIC_NAN, 0)
+    elif exp < 0:
+        dscale = -exp
+    else:
+        dscale = 0
+    if sign:
+        sign = NUMERIC_NEG
+    else:
+        sign = NUMERIC_POS
+    digits = digits + (0,) * (exp % 4)
+    words = pack_digits(digits)
+    ndigits = len(words)
+    weight = ndigits - 1 + exp / 4
+    print (ndigits, weight, sign, dscale) + words
+    return pgoid.numeric, struct.pack('!HhHH%dH' % ndigits, 
+                                     *((ndigits, weight, sign, dscale) + words))
+
 #       number of dimensions (int4)
 #	flags (int4)
 #	element type id (Oid)
