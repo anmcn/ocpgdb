@@ -3,6 +3,7 @@ import unittest
 import ocpgdb
 import operator
 import datetime
+import decimal
 try:
     from mx import DateTime
     have_mx = True
@@ -81,58 +82,6 @@ class BasicSuite(unittest.TestSuite):
     ]
     def __init__(self):
         unittest.TestSuite.__init__(self, map(BasicTests, self.tests))
-
-
-class FromDBTests(unittest.TestCase):
-    """
-    This checks the "from PG" conversions - the "to PG" tests later
-    assume the "from PG" conversions are correct.
-    """
-
-    def _test(self, db, input, pgtype, expect):
-        rows = list(db.execute("select '%s'::%s" % (input, pgtype)))
-        self.assertEqual(len(rows), 1)
-        self.assertEqual(len(rows[0]), 1)
-        value = rows[0][0]
-        self.assertEqual(expect, value)
-
-    def test_decimal(self):
-        import decimal
-        d = decimal.Decimal
-        db = ocpgdb.connect(**scratch_db)
-        values = [
-            '0',                # 0 words
-            '0.0000',           # 0 words, weight 0, dscale 4
-            '1',                # 1 word
-            '1000',             # 1 word
-            '10000',            # 1 word, weight 1, dscale 0
-            '.001',             # 1 word, weight -1, dscale 3
-            '.0001',            # 1 word, weight -1, dscale 4
-            '10001',            # 2 words, weight 1, dscale 0
-            '10001.001',        # 3 words, weight 1, dscale 3
-            '10001.0001',       # 3 words, weight 1, dscale 4
-            '1e1000',           # 1 word, weight 250, dscale 0
-            '1e-1000',          # 1 word, weight -250, dscale 1000
-        ]
-        try:
-            for value in values:
-                self._test(db, value, 'numeric', decimal.Decimal(value))
-                self._test(db, '-'+value, 'numeric', decimal.Decimal('-'+value))
-# equality doesn't work with NaN, so we have to do it explicitly
-#            self._test(db, 'NaN', 'numeric', decimal.Decimal('NaN'))
-            nan = list(db.execute("select 'NaN'::numeric"))[0][0]
-            self.failUnless(isinstance(nan, decimal.Decimal))
-            self.assertEqual(str(nan), 'NaN')
-        finally:
-            db.close()
-
-
-class FromDBSuite(unittest.TestSuite):
-    tests = [
-        'test_decimal',
-    ]
-    def __init__(self):
-        unittest.TestSuite.__init__(self, map(FromDBTests, self.tests))
 
 
 class ConversionTestCase(unittest.TestCase):
@@ -260,6 +209,42 @@ class FloatConversion(ConversionTestCase):
         self.both(-1e240)
         self.both(1e-240)
         self.both(-1e-240)
+
+
+class NumericConversion(ConversionTestCase):
+    pgtype = 'numeric'
+
+    def equal(self, a, b):
+        if isinstance(a, decimal.Decimal) and isinstance(b, decimal.Decimal):
+            return a.as_tuple() == b.as_tuple()
+        return a == b
+
+    def runTest(self):
+        D = decimal.Decimal
+        self.roundtrip(None)
+        self.both(D('0'))               # 0 words
+        self.both(D('0.0000'))          # 0 words, weight 0, dscale 4
+        self.both(D('1'))               # 1 word
+        self.both(D('-1'))              # 1 word
+        self.both(D('1000'))            # 1 word
+        self.both(D('-1000'))           # 1 word
+        self.both(D('1e4'), '10000')    # 1 word, weight 1, dscale 0
+        self.both(D('-1e4'), '-10000')  # 1 word, weight 1, dscale 0
+        self.both(D('.001'))            # 1 word, weight -1, dscale 3
+        self.both(D('-.001'))           # 1 word, weight -1, dscale 3
+        self.both(D('.0001'))           # 1 word, weight -1, dscale 4
+        self.both(D('-.0001'))          # 1 word, weight -1, dscale 4
+        self.both(D('10001'))           # 2 words, weight 1, dscale 0
+        self.both(D('-10001'))          # 2 words, weight 1, dscale 0
+        self.both(D('10001.001'))       # 3 words, weight 1, dscale 3
+        self.both(D('-10001.001'))      # 3 words, weight 1, dscale 3
+        self.both(D('10001.0001'))      # 3 words, weight 1, dscale 4
+        self.both(D('-10001.0001'))     # 3 words, weight 1, dscale 4
+        self.both(D('1e1000'))          # 1 word, weight 250, dscale 0
+        self.both(D('-1e1000'))         # 1 word, weight 250, dscale 0
+        self.both(D('1e-1000'))         # 1 word, weight -250, dscale 1000
+        self.both(D('-1e-1000'))        # 1 word, weight -250, dscale 1000
+        self.both(D('NaN'))
 
 
 class TextConversion(ConversionTestCase):
@@ -424,6 +409,7 @@ class ConversionSuite(unittest.TestSuite):
         Int2Conversion,
         Int8Conversion,
         FloatConversion,
+        NumericConversion,
         TextConversion,
         VarcharConversion,
         Varchar5Conversion,
@@ -451,7 +437,6 @@ class OCPGDBSuite(unittest.TestSuite):
     def __init__(self):
         unittest.TestSuite.__init__(self)
         self.addTest(BasicSuite())
-        self.addTest(FromDBSuite())
         self.addTest(ConversionSuite())
 
 

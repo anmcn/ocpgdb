@@ -131,7 +131,7 @@ def pack_numeric(num):
         return tuple(words)
     sign, digits, exp = num.as_tuple()
     if exp == 'n':
-        return struct.pack('!HhHH', 0, 0, NUMERIC_NAN, 0)
+        return pgoid.numeric, struct.pack('!HhHH', 0, 0, NUMERIC_NAN, 0)
     elif exp < 0:
         dscale = -exp
     else:
@@ -144,7 +144,7 @@ def pack_numeric(num):
     words = pack_digits(digits)
     ndigits = len(words)
     weight = ndigits - 1 + exp / 4
-    print (ndigits, weight, sign, dscale) + words
+#    print (ndigits, weight, sign, dscale) + words
     return pgoid.numeric, struct.pack('!HhHH%dH' % ndigits, 
                                      *((ndigits, weight, sign, dscale) + words))
 
