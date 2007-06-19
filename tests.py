@@ -1,6 +1,8 @@
 import sys
 import unittest
 import ocpgdb
+import operator
+import datetime
 try:
     from mx import DateTime
     have_mx = True
@@ -94,67 +96,6 @@ class FromDBTests(unittest.TestCase):
         value = rows[0][0]
         self.assertEqual(expect, value)
 
-    def test_bool(self):
-        db = ocpgdb.connect(**scratch_db)
-        try:
-            self._test(db, 'true', 'bool', True)
-            self._test(db, 'false', 'bool', False)
-        finally:
-            db.close()
-
-    def test_int(self):
-        db = ocpgdb.connect(**scratch_db)
-        try:
-            self._test(db, '1', 'int', 1)
-            self._test(db, str(sys.maxint), 'int', sys.maxint)
-            self._test(db, str(-sys.maxint), 'int', -sys.maxint)
-
-            self._test(db, '1', 'int2', 1)
-
-            self._test(db, '1', 'int8', 1)
-            maxsq = sys.maxint * sys.maxint
-            self._test(db, str(maxsq), 'int8', maxsq)
-            self._test(db, str(-maxsq), 'int8', -maxsq)
-        finally:
-            db.close()
-
-    def test_float(self):
-        db = ocpgdb.connect(**scratch_db)
-        try:
-            self._test(db, '0.0', 'float', 0.0)
-            self._test(db, '1.0', 'float', 1.0)
-            self._test(db, '1e240', 'float', 1e240)
-            self._test(db, '-1e240', 'float', -1e240)
-            self._test(db, '1e-240', 'float', 1e-240)
-            self._test(db, '-1e-240', 'float', -1e-240)
-        finally:
-            db.close()
-
-    def test_str(self):
-        db = ocpgdb.connect(**scratch_db)
-        try:
-            aaa = 'A' * 65536
-            self._test(db, '', 'text', '')
-            self._test(db, aaa, 'text', aaa)
-
-            self._test(db, '', 'varchar', '')
-            self._test(db, aaa, 'varchar', aaa)
-
-            self._test(db, '', 'varchar(5)', '')
-            self._test(db, aaa, 'varchar(5)', 'A' * 5)
-
-            self._test(db, '', 'char(5)', ' ' * 5)
-            self._test(db, aaa, 'char(5)', 'A' * 5)
-        finally:
-            db.close()
-
-    def test_bytea(self):
-        db = ocpgdb.connect(**scratch_db)
-        try:
-            self._test(db, '', 'bytea', ocpgdb.bytea(''))
-        finally:
-            db.close()
-
     def test_decimal(self):
         import decimal
         d = decimal.Decimal
@@ -185,389 +126,325 @@ class FromDBTests(unittest.TestCase):
         finally:
             db.close()
 
-    def test_py_datetime(self):
-        import datetime
-        db = ocpgdb.connect(**scratch_db)
-        try:
-            self._test(db, '2007-5-8 15:9:32.23', 'timestamp', 
-                        datetime.datetime(2007,5,8,15,9,32,230000))
-            self._test(db, '1900-05-08 15:09:32.23', 'timestamp', 
-                        datetime.datetime(1900,5,8,15,9,32,230000))
-            self._test(db, '2200-05-08 15:09:32.23', 'timestamp', 
-                        datetime.datetime(2200,5,8,15,9,32,230000))
-        finally:
-            db.close()
-
-    def test_py_time(self):
-        import datetime
-        db = ocpgdb.connect(**scratch_db)
-        try:
-            self._test(db, '15:9:32.23', 'time', datetime.time(15,9,32,230000))
-            self._test(db, '0:0:0.0', 'time', datetime.time(0,0,0,0))
-            self._test(db, '23:59:59.999', 'time', 
-                        datetime.time(23,59,59,999000))
-        finally:
-            db.close()
-
-    def test_py_date(self):
-        import datetime
-        db = ocpgdb.connect(**scratch_db)
-        try:
-            self._test(db, '2007-5-8', 'date', datetime.date(2007,5,8))
-            self._test(db, '1900-5-8', 'date', datetime.date(1900,5,8))
-            self._test(db, '2200-5-8', 'date', datetime.date(2200,5,8))
-        finally:
-            db.close()
-
-    def _test_mx(self, db, input, pgtype, expect):
-        # mx.DateTime has a precision of 10ms, so we need to account for
-        # rounding errors.
-        rows = list(db.execute("select '%s'::%s" % (input, pgtype)))
-        self.assertEqual(len(rows), 1)
-        self.assertEqual(len(rows[0]), 1)
-        value = rows[0][0]
-        self.failIf(DateTime.cmp(expect, value, 0.01), 
-                    'expect %s, got %s' % (expect, value))
-
-    def test_mx_datetime(self):
-        db = ocpgdb.connect(use_mx_datetime=True, **scratch_db)
-        try:
-            self._test_mx(db, '2007-5-8 15:9:32.24', 'timestamp', 
-                            DateTime.DateTime(2007,5,8,15,9,32.24))
-            self._test_mx(db, '1900-5-8 15:9:32.24', 'timestamp', 
-                            DateTime.DateTime(1900,5,8,15,9,32.24)) 
-            self._test_mx(db, '2200-5-8 15:9:32.24', 'timestamp', 
-                            DateTime.DateTime(2200,5,8,15,9,32.24)) 
-        finally:
-            db.close()
-
-    def test_mx_time(self):
-        db = ocpgdb.connect(use_mx_datetime=True, **scratch_db)
-        try:
-            self._test_mx(db, '15:9:32.24', 'time', DateTime.Time(15,9,32.23))
-            self._test_mx(db, '0:0:0.0', 'time', DateTime.Time(0,0,0.0))
-            self._test_mx(db, '23:59:59.99', 'time', DateTime.Time(23,59,59.99))
-        finally:
-            db.close()
-
-    def test_mx_date(self):
-        db = ocpgdb.connect(use_mx_datetime=True, **scratch_db)
-        try:
-            self._test_mx(db, '2007-5-8', 'date',  DateTime.Date(2007,5,8))
-            self._test_mx(db, '1900-5-8', 'date', DateTime.Date(1900,5,8))
-            self._test_mx(db, '2200-5-8', 'date', DateTime.Date(2200,5,8))
-        finally:
-            db.close()
-
-    def test_mx_interval(self):
-        db = ocpgdb.connect(use_mx_datetime=True, **scratch_db)
-        try:
-            rd = DateTime.RelativeDateTime
-            self._test(db, '1 second', 'interval', rd(seconds=1))
-            self._test(db, '-1 second', 'interval', rd(seconds=-1))
-            self._test(db, '1 day', 'interval', rd(days=1))
-            self._test(db, '-1 day', 'interval', rd(days=-1))
-            self._test(db, '1 month', 'interval', rd(months=1))
-            self._test(db, '-1 month', 'interval', rd(months=-1))
-            self._test(db, '1 year', 'interval', rd(years=1))
-            self._test(db, '-1 year', 'interval', rd(years=-1))
-            self._test(db, '1 minute 1 second', 'interval', 
-                            rd(minutes=1, seconds=1))
-            self._test(db, '-1 minute 1 second', 'interval', 
-                            rd(seconds=-59))
-            self._test(db, '1 minute, -1 second', 'interval', 
-                            rd(seconds=59))
-            self._test(db, '-1 minute, -1 seconds', 'interval', 
-                            rd(minutes=-1, seconds=-1))
-            self._test(db, '1 year, 1 second', 'interval', 
-                            rd(years=1, seconds=1))
-            self._test(db, '-1 year, 1 second', 'interval', 
-                            rd(years=-1, seconds=1))
-            self._test(db, '1 year, -1 second', 'interval', 
-                            rd(years=1, seconds=-1))
-            self._test(db, '-1 year, -1 second', 'interval', 
-                            rd(years=-1, seconds=-1))
-        finally:
-            db.close()
 
 class FromDBSuite(unittest.TestSuite):
     tests = [
-        'test_bool',
-        'test_int',
-        'test_float',
-        'test_str',
-        'test_bytea',
         'test_decimal',
-        'test_py_datetime',
-        'test_py_time',
-        'test_py_date',
-#        'test_py_interval',
     ]
-    if have_mx:
-        tests.extend([
-        'test_mx_datetime',
-        'test_mx_time',
-        'test_mx_date',
-        'test_mx_interval',
-        ])
     def __init__(self):
         unittest.TestSuite.__init__(self, map(FromDBTests, self.tests))
 
 
-class ConversionTests(unittest.TestCase):
+class ConversionTestCase(unittest.TestCase):
+    connect_args = scratch_db
+    equal = operator.eq
+    pgtype = None
+    values = []
+    exceptions = []
 
-    def _test(self, db, input, pgtype, expect=None, expect_type=None):
-        if expect is None:
-            expect = input
-        if expect_type is None:
-            expect_type = type(expect)
-        rows = list(db.execute("select %s::" + pgtype, input))
+    def exone(self, db, cmd, *args):
+        rows = list(db.execute(cmd, *args))
         self.assertEqual(len(rows), 1)
         self.assertEqual(len(rows[0]), 1)
-        value = rows[0][0]
-#        self.failUnless(isinstance(value, expect_type),
-#                        'Expected type %s, got %s' % (expect_type.__name__,
-#                                                      type(value).__name__))
-        self.assertEqual(expect, value)
+        return rows[0][0]
 
-    def test_bool(self):
-        db = ocpgdb.connect(**scratch_db)
-        try:
-            self._test(db, None, 'bool')
-            self._test(db, True, 'bool')
-            self._test(db, False, 'bool')
-        finally:
-            db.close()
+    def fromdb(self, pyval, pgstr=None):
+        """
+        Test conversion from an SQL literal to a python type
+        """
+        if pgstr is None:
+            pgstr = str(pyval)
+        got = self.exone(self.db, "select %r::%s" % (pgstr, self.pgtype))
+        self.failUnless(self.equal(pyval, got),
+                        "from pg val %s::%s, expected %r, got %r" %
+                            (pgstr, self.pgtype, pyval, got))
 
-    def test_int(self):
-        db = ocpgdb.connect(**scratch_db)
-        try:
-            self._test(db, None, 'int')
-            self._test(db, 1, 'int')
-            self._test(db, sys.maxint, 'int')
-            self._test(db, -sys.maxint, 'int')
+    def _todb(self, pyval):
+        return self.exone(self.db, "select %s::" + self.pgtype, pyval)
 
-            self._test(db, None, 'int2')
-            self._test(db, 1, 'int2')
-            self.assertRaises(ocpgdb.OperationalError, self._test, 
-                                db, sys.maxint, 'int2')
-            self.assertRaises(ocpgdb.OperationalError, self._test, 
-                                db, -sys.maxint, 'int2')
+    def roundtrip(self, value, expect=None):
+        """
+        Test conversion round trip from py to pg and back to py
+        """
+        if expect is None:
+            expect = value
+        got = self._todb(value)
+        self.failUnless(self.equal(got, expect),
+                        "round trip, %s type, expected %r, got %r" % 
+                            (self.pgtype, expect, got))
 
-            self._test(db, None, 'int8')
-            self._test(db, 1, 'int8')
-            self._test(db, sys.maxint * sys.maxint, 'int8')
-            self._test(db, -(sys.maxint * sys.maxint), 'int8')
-        finally:
-            db.close()
+    def both(self, value, *args):
+        """
+        Test both conversion from SQL and round trip
+        """
+        pgstr = None
+        expect = value
+        if len(args) == 1:
+            pgstr = args[0]
+        elif len(args) == 2:
+            pgstr, expect = args
+        self.fromdb(expect, pgstr)
+        self.roundtrip(value, expect)
 
-    def test_float(self):
-        db = ocpgdb.connect(**scratch_db)
-        try:
-            self._test(db, None, 'float')
-            self._test(db, 0.0, 'float')
-            self._test(db, 1.0, 'float')
-            self._test(db, 1e240, 'float')
-            self._test(db, -1e240, 'float')
-            self._test(db, 1e-240, 'float')
-            self._test(db, -1e-240, 'float')
-        finally:
-            db.close()
+    def errorval(self, exc, pyval):
+        """
+        Check that a value conversion results in an exception being raised
+        """
+        self.assertRaises(exc, self._todb, pyval)
 
-    def test_str(self):
-        db = ocpgdb.connect(**scratch_db)
-        try:
-            self._test(db, None, 'text')
-            self._test(db, '', 'text')
-            self._test(db, '\'\"\x01', 'text')
-            self._test(db, 'A' * 65536, 'text')
+    def setUp(self):
+        self.db = ocpgdb.connect(**self.connect_args)
 
-            self._test(db, None, 'varchar')
-            self._test(db, '', 'varchar')
-            self._test(db, '\'\"\x01', 'varchar')
-            self._test(db, 'A' * 65536, 'varchar')
-
-            self._test(db, None, 'varchar(5)')
-            self._test(db, '', 'varchar(5)')
-            self._test(db, '\'\"\x01', 'varchar(5)')
-            self._test(db, 'A' * 65536, 'varchar(5)', 'A' * 5)
-
-            self._test(db, None, 'char(5)')
-            self._test(db, '', 'char(5)', ' ' * 5)
-            self._test(db, '\'\"\x01', 'char(5)', '\'\"\x01  ')
-            self._test(db, 'A' * 65536, 'char(5)', 'A' * 5)
-        finally:
-            db.close()
-
-    def test_bytea(self):
-        db = ocpgdb.connect(**scratch_db)
-        try:
-            self._test(db, None, 'bytea')
-            self._test(db, ocpgdb.bytea(''), 'bytea')
-            data = ocpgdb.bytea(''.join([chr(i) for i in range(256)]))
-            self._test(db, data, 'bytea')
-        finally:
-            db.close()
-
-# Currently broken
-#    def test_decimal(self):
-#        import decimal
-#        db = ocpgdb.connect(**scratch_db)
-#        try:
-#            self._test(db, None, 'numeric')
-#            self._test(db, decimal.Decimal('0'), 'numeric')
-#            self._test(db, decimal.Decimal('0.0000'), 'numeric')
-#            self._test(db, decimal.Decimal('0.000000000000000000000000000000000001'), 'numeric')
-##            self._test(db, decimal.Decimal('NaN'), 'numeric')
-#        finally:
-#            db.close()
-
-    def test_py_datetime(self):
-        import datetime
-        db = ocpgdb.connect(**scratch_db)
-        try:
-            self._test(db, None, 'timestamp')
-            self._test(db, datetime.datetime(2007,5,8,15,9,32,23), 'timestamp')
-            self._test(db, datetime.datetime(1900,5,8,15,9,32,23), 'timestamp')
-            self._test(db, datetime.datetime(2200,5,8,15,9,32,23), 'timestamp')
-        finally:
-            db.close()
-
-    def test_py_time(self):
-        import datetime
-        db = ocpgdb.connect(**scratch_db)
-        try:
-            self._test(db, None, 'time')
-            self._test(db, datetime.time(15,9,32,23), 'time')
-            self._test(db, datetime.time(0,0,0,0), 'time')
-            self._test(db, datetime.time(23,59,59,999), 'time')
-        finally:
-            db.close()
-
-    def test_py_date(self):
-        import datetime
-        db = ocpgdb.connect(**scratch_db)
-        try:
-            self._test(db, None, 'date')
-            self._test(db, datetime.date(2007,5,8), 'date')
-            self._test(db, datetime.date(1900,5,8), 'date')
-            self._test(db, datetime.date(2200,5,8), 'date')
-        finally:
-            db.close()
+    def tearDown(self):
+        self.db.close()
 
 
-    if 0:
-        def test_py_interval(self):
-            import datetime
-            db = ocpgdb.connect(**scratch_db)
-            try:
-                self._test(db, None, 'interval')
-                self._test(db, datetime.timedelta(0,0,0,0,0), 'interval')
-                self._test(db, datetime.timedelta(0,0,0,0,0), 'interval')
-                self._test(db, datetime.timedelta(0,59,0,0,59,23), 'interval')
-                self._test(db, datetime.timedelta(seconds=-1), 'interval')
-                self._test(db, datetime.timedelta(days=-1), 'interval')
-                self._test(db, datetime.timedelta(days=-1, seconds=1), 'interval')
-                self._test(db, datetime.timedelta(days=-1, seconds=-1), 'interval')
-            finally:
-                db.close()
+class BoolConversion(ConversionTestCase):
+    pgtype = 'bool'
 
-    def _test_mx(self, db, input, pgtype, expect=None, expect_type=None):
+    def runTest(self):
+        self.fromdb(True, 'true')
+        self.fromdb(False, 'false')
+        self.roundtrip(None)
+        self.roundtrip(True)
+        self.roundtrip(False)
+
+
+class IntConversion(ConversionTestCase):
+    pgtype = 'int'
+
+    def runTest(self):
+        self.roundtrip(None)
+        self.both(-1)
+        self.both(0)
+        self.both(1)
+        self.both(sys.maxint)
+        self.both(-sys.maxint)
+
+
+class Int2Conversion(ConversionTestCase):
+    pgtype = 'int2'
+
+    def runTest(self):
+        self.roundtrip(None)
+        self.both(-1)
+        self.both(0)
+        self.both(1)
+        self.both(0x7fff)
+        self.both(-0x7fff)
+        self.errorval(ocpgdb.OperationalError, 0xffff)
+        self.errorval(ocpgdb.OperationalError, -0xffff)
+
+
+class Int8Conversion(ConversionTestCase):
+    pgtype = 'int8'
+
+    def runTest(self):
+        self.roundtrip(None)
+        self.both(-1)
+        self.both(0)
+        self.both(1)
+        self.both(sys.maxint * sys.maxint)
+        self.both(-sys.maxint * sys.maxint)
+
+
+class FloatConversion(ConversionTestCase):
+    pgtype = 'float'
+
+    def runTest(self):
+        self.roundtrip(None)
+        self.both(-1.0)
+        self.both(0.0)
+        self.both(1.0)
+        self.both(1e240) 
+        self.both(-1e240)
+        self.both(1e-240)
+        self.both(-1e-240)
+
+
+class TextConversion(ConversionTestCase):
+    pgtype = 'text'
+
+    def runTest(self):
+        self.roundtrip(None)
+        self.both('')
+        self.both('\'\"\x01')
+        self.both('A' * 65536)
+
+
+class VarcharConversion(ConversionTestCase):
+    pgtype = 'varchar'
+
+    def runTest(self):
+        self.roundtrip(None)
+        self.both('')
+        self.both('\'\"\x01')
+        self.both('A' * 65536)
+
+
+class Varchar5Conversion(ConversionTestCase):
+    pgtype = 'varchar(5)'
+
+    def runTest(self):
+        self.roundtrip(None)
+        self.both('')
+        self.both('\'\"\x01')
+        self.roundtrip('A' * 65536, 'A' * 5)
+
+
+class Char5Conversion(ConversionTestCase):
+    pgtype = 'char(5)'
+
+    def runTest(self):
+        self.roundtrip(None)
+        self.roundtrip('', ' ' * 5)
+        self.roundtrip('\'\"\x01', '\'\"\x01  ')
+        self.roundtrip('A' * 65536, 'A' * 5)
+
+
+class ByteaConversion(ConversionTestCase):
+    pgtype = 'bytea'
+
+    def runTest(self):
+        self.roundtrip(None)
+        self.roundtrip(ocpgdb.bytea(''))
+        data = ocpgdb.bytea(''.join([chr(i) for i in range(256)]))
+        self.roundtrip(data)
+
+
+class PyTimestampConversion(ConversionTestCase):
+    pgtype = 'timestamp'
+
+    def runTest(self):
+        self.roundtrip(None)
+        self.both(datetime.datetime(2007,5,8,15,9,32,23))
+        self.both(datetime.datetime(1900,5,8,15,9,32,23))
+        self.both(datetime.datetime(2200,5,8,15,9,32,23))
+
+
+class PyTimeConversion(ConversionTestCase):
+    pgtype = 'time'
+
+    def runTest(self):
+        self.roundtrip(None)
+        self.both(datetime.time(15,9,32,23))
+        self.both(datetime.time(0,0,0,0))
+        self.both(datetime.time(23,59,59,999))
+
+
+class PyDateConversion(ConversionTestCase):
+    pgtype = 'date'
+
+    def runTest(self):
+        self.roundtrip(None)
+        self.both(datetime.date(2007,5,8))
+        self.both(datetime.date(1900,5,8))
+        self.both(datetime.date(2200,5,8))
+
+
+# Can't support "interval" semantics with python datetime module
+#class PyIntervalConversion(ConversionTestCase):
+#    pgtype = 'interval'
+#
+#    def runTest(self):
+#        pass
+
+
+class MxTestConversion(ConversionTestCase):
+    connect_args = dict(use_mx_datetime=True, **scratch_db)
+
+    def equal(self, a, b):
         # mx.DateTime has a precision of 10ms, so we need to account for
         # rounding errors.
-        if expect is None:
-            expect = input
-        rows = list(db.execute("select %s::" + pgtype, input))
-        self.assertEqual(len(rows), 1)
-        self.assertEqual(len(rows[0]), 1)
-        value = rows[0][0]
-        if expect is None and value is None:
-            return
-        self.failIf(DateTime.cmp(expect, value, 0.01), 
-                    'expect %s, got %s' % (expect, value))
+        datetime_types = DateTime.DateTimeType, DateTime.DateTimeDeltaType
+        if isinstance(a, datetime_types) and isinstance(b, datetime_types):
+            return DateTime.cmp(a, b, 0.01) == 0
+        return a == b
 
-    def test_mx_datetime(self):
-        db = ocpgdb.connect(use_mx_datetime=True, **scratch_db)
-        try:
-            self._test_mx(db, None, 'timestamp')
-            self._test_mx(db, DateTime.DateTime(2007,5,8,15,9,32.24), 
-                            'timestamp')
-            self._test_mx(db, DateTime.DateTime(1900,5,8,15,9,32.24), 
-                            'timestamp')
-            self._test_mx(db, DateTime.DateTime(2200,5,8,15,9,32.24), 
-                            'timestamp')
-        finally:
-            db.close()
 
-    def test_mx_time(self):
-        db = ocpgdb.connect(use_mx_datetime=True, **scratch_db)
-        try:
-            self._test_mx(db, None, 'time')
-            self._test_mx(db, DateTime.Time(15,9,32.23), 'time')
-            self._test_mx(db, DateTime.Time(0,0,0.0), 'time')
-            self._test_mx(db, DateTime.Time(23,59,59.99), 'time')
-        finally:
-            db.close()
+class MxTimestampConversion(MxTestConversion):
+    pgtype = 'timestamp'
 
-    def test_mx_date(self):
-        db = ocpgdb.connect(use_mx_datetime=True, **scratch_db)
-        try:
-            self._test_mx(db, None, 'date')
-            self._test_mx(db, DateTime.Date(2007,5,8), 'date')
-            self._test_mx(db, DateTime.Date(1900,5,8), 'date')
-            self._test_mx(db, DateTime.Date(2200,5,8), 'date')
-        finally:
-            db.close()
+    def runTest(self):
+        self.roundtrip(None)
+        self.both(DateTime.DateTime(2007,5,8,15,9,32.24))
+        self.both(DateTime.DateTime(1900,5,8,15,9,32.24))
+        self.both(DateTime.DateTime(2200,5,8,15,9,32.24))
 
-    def test_mx_interval(self):
-        db = ocpgdb.connect(use_mx_datetime=True, **scratch_db)
-        try:
-            rd = DateTime.RelativeDateTime
-            self._test(db, None, 'interval')
-            self._test(db, rd(), 'interval')
-            self._test(db, rd(seconds=1), 'interval')
-            self._test(db, rd(seconds=-1), 'interval')
-            self._test(db, rd(days=1), 'interval')
-            self._test(db, rd(days=-1), 'interval')
-            self._test(db, rd(months=1), 'interval')
-            self._test(db, rd(months=-1), 'interval')
-            self._test(db, rd(years=1), 'interval')
-            self._test(db, rd(years=-1), 'interval')
-            self._test(db, rd(minutes=1, seconds=1), 'interval')
-            self._test(db, rd(minutes=-1, seconds=1), 'interval',
-                           rd(seconds=-59))
-            self._test(db, rd(minutes=1, seconds=-1), 'interval',
-                           rd(seconds=59))
-            self._test(db, rd(minutes=-1, seconds=-1), 'interval')
-            self._test(db, rd(years=1, seconds=1), 'interval')
-            self._test(db, rd(years=-1, seconds=1), 'interval')
-            self._test(db, rd(years=1, seconds=-1), 'interval')
-            self._test(db, rd(years=-1, seconds=-1), 'interval')
-        finally:
-            db.close()
+
+class MxTimeConversion(MxTestConversion):
+    pgtype = 'time'
+
+    def runTest(self):
+        self.roundtrip(None)
+        self.both(DateTime.Time(15,9,32.23))
+        self.both(DateTime.Time(0,0,0.0))
+        self.both(DateTime.Time(23,59,59.99))
+
+
+class MxDateConversion(MxTestConversion):
+    pgtype = 'date'
+
+    def runTest(self):
+        self.roundtrip(None)
+        self.both(DateTime.Date(2007,5,8))
+        self.both(DateTime.Date(1900,5,8))
+        self.both(DateTime.Date(2200,5,8))
+
+
+class MxIntervalConversion(MxTestConversion):
+    pgtype = 'interval'
+
+    def runTest(self):
+        rd = DateTime.RelativeDateTime
+        self.roundtrip(None)
+        self.roundtrip(rd())
+        self.both(rd(seconds=1), '1 second')
+        self.both(rd(seconds=-1), '-1 second')
+        self.both(rd(days=1), '1 day')
+        self.both(rd(days=-1), '-1 day')
+        self.both(rd(months=1), '1 month')
+        self.both(rd(months=-1), '-1 month')
+        self.both(rd(years=1), '1 year')
+        self.both(rd(years=-1), '-1 year')
+        self.both(rd(minutes=1, seconds=1), '1 minute 1 second')
+        self.both(rd(minutes=-1, seconds=1), '-1 min 1 sec', rd(seconds=-59)) 
+        self.both(rd(minutes=1, seconds=-1), '1 min -1 sec', rd(seconds=59))
+        self.both(rd(minutes=-1, seconds=-1), '-1 minute -1 seconds')
+        self.both(rd(years=1, seconds=1), '1 year, 1 second')
+        self.both(rd(years=-1, seconds=1), '-1 year, 1 second')
+        self.both(rd(years=1, seconds=-1), '1 year, -1 second')
+        self.both(rd(years=-1, seconds=-1), '-1 year, -1 second')
+
 
 class ConversionSuite(unittest.TestSuite):
     tests = [
-        'test_bool',
-        'test_int',
-        'test_float',
-        'test_str',
-        'test_bytea',
+        BoolConversion,
+        IntConversion,
+        Int2Conversion,
+        Int8Conversion,
+        FloatConversion,
+        TextConversion,
+        VarcharConversion,
+        Varchar5Conversion,
+        Char5Conversion,
+        ByteaConversion,
+        PyTimestampConversion,
+        PyTimeConversion,
+        PyDateConversion,
 #        'test_decimal',
-        'test_py_datetime',
-        'test_py_time',
-        'test_py_date',
-#        'test_py_interval',
     ]
     if have_mx:
         tests.extend([
-        'test_mx_datetime',
-        'test_mx_time',
-        'test_mx_date',
-        'test_mx_interval',
+            MxTimestampConversion,
+            MxTimeConversion,
+            MxDateConversion,
+            MxIntervalConversion,
         ])
     def __init__(self):
-        unittest.TestSuite.__init__(self, map(ConversionTests, self.tests))
+        unittest.TestSuite.__init__(self)
+        for test in self.tests:
+            self.addTest(test())
 
 
 class OCPGDBSuite(unittest.TestSuite):
@@ -581,4 +458,4 @@ class OCPGDBSuite(unittest.TestSuite):
 suite = OCPGDBSuite
 
 if __name__ == '__main__':
-    unittest.main()
+    unittest.main(defaultTest='suite')
