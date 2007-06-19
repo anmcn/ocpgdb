@@ -31,13 +31,17 @@ def decode(db, value):
     print "ndigits %d, weight %d, sign %d, dscale %d" % (ndigits, weight, sign, dscale)
     print words
     assert ndigits == len(words)
-    digits = unpack_digits(words)
-    if sign == 16384:
-        sign = 1
-    cull = (4 - dscale) % 4
-    exp = (weight + 1 - ndigits) * 4 + cull
-    if cull:
-        digits = digits[:-cull]
+    if words:
+        digits = unpack_digits(words)
+        if sign == 16384:
+            sign = 1
+        cull = (4 - dscale) % 4
+        exp = (weight + 1 - ndigits) * 4 + cull
+        if cull:
+            digits = digits[:-cull]
+    else:
+        exp = -dscale
+        digits = (0,) * dscale
     print digits, exp
     return decimal.Decimal((sign, digits, exp))
 

@@ -96,9 +96,6 @@ def unpack_numeric(buf):
                     digits.append(d)
         return tuple(digits)
     ndigits, weight, sign, dscale = struct.unpack('!HhHH', buf[:8])
-    words = struct.unpack('!%dH' % ndigits, buf[8:])
-    digits = unpack_digits(words)
-    # XXX Fix
     if sign == NUMERIC_POS:
         sign = 0
     elif sign == NUMERIC_NEG:
@@ -107,12 +104,16 @@ def unpack_numeric(buf):
         return decimal.Decimal('NaN')
     else:
         raise ValueError('Invalid numeric sign: %0x' % sign)
-    if sign == 16384:
-        sign = 1
-    cull = (4 - dscale) % 4
-    exp = (weight + 1 - ndigits) * 4 + cull
-    if cull:
-        digits = digits[:-cull]
+    if ndigits:
+        words = struct.unpack('!%dH' % ndigits, buf[8:])
+        digits = unpack_digits(words)
+        cull = (4 - dscale) % 4
+        exp = (weight + 1 - ndigits) * 4 + cull
+        if cull:
+            digits = digits[:-cull]
+    else:
+        exp = -dscale
+        digits = (0,)
     return decimal.Decimal((sign, digits, exp))
 
 def pack_numeric(num):

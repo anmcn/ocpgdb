@@ -236,10 +236,14 @@ class NumericConversion(ConversionTestCase):
         self.both(D('-.0001'))          # 1 word, weight -1, dscale 4
         self.both(D('10001'))           # 2 words, weight 1, dscale 0
         self.both(D('-10001'))          # 2 words, weight 1, dscale 0
+        self.both(D('1.23'))            # 2 words, weight 0, dscale 2
+        self.both(D('-1.23'))           # 2 words, weight 0, dscale 2
         self.both(D('10001.001'))       # 3 words, weight 1, dscale 3
         self.both(D('-10001.001'))      # 3 words, weight 1, dscale 3
         self.both(D('10001.0001'))      # 3 words, weight 1, dscale 4
         self.both(D('-10001.0001'))     # 3 words, weight 1, dscale 4
+        self.both(D('10001.000001'))    # 3 words, weight 1, dscale 6
+        self.both(D('-10001.000001'))   # 3 words, weight 1, dscale 6
         self.both(D('1e1000'))          # 1 word, weight 250, dscale 0
         self.both(D('-1e1000'))         # 1 word, weight 250, dscale 0
         self.both(D('1e-1000'))         # 1 word, weight -250, dscale 1000
@@ -418,7 +422,6 @@ class ConversionSuite(unittest.TestSuite):
         PyTimestampConversion,
         PyTimeConversion,
         PyDateConversion,
-#        'test_decimal',
     ]
     if have_mx:
         tests.extend([
