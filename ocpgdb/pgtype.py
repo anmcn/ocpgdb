@@ -1,3 +1,4 @@
+from __future__ import division
 # Standard Python Libs
 import struct
 import decimal
@@ -91,7 +92,7 @@ def unpack_numeric(buf):
         digits = []
         for word in words:
             for s in shift:
-                d = word / s % 10
+                d = word // s % 10
                 if digits or d:
                     digits.append(d)
         return tuple(digits)
@@ -144,7 +145,7 @@ def pack_numeric(num):
     digits = digits + (0,) * (exp % 4)
     words = pack_digits(digits)
     ndigits = len(words)
-    weight = ndigits - 1 + exp / 4
+    weight = ndigits - 1 + exp // 4
 #    print (ndigits, weight, sign, dscale) + words
     return pgoid.numeric, struct.pack('!HhHH%dH' % ndigits, 
                                      *((ndigits, weight, sign, dscale) + words))
