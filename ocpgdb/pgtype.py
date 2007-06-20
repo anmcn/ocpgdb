@@ -132,9 +132,13 @@ def pack_numeric(num):
             words.insert(0, word)
         return tuple(words)
     sign, digits, exp = num.as_tuple()
-    if exp == 'n':
-        return pgoid.numeric, struct.pack('!HhHH', 0, 0, NUMERIC_NAN, 0)
-    elif exp < 0:
+    if not isinstance(exp, int):
+        if exp == 'n' or exp == 'N':
+            return pgoid.numeric, struct.pack('!HhHH', 0, 0, NUMERIC_NAN, 0)
+        elif exp == 'F':
+            raise ValueError('No conversion available for Decimal(Infinity)')
+        raise ValueError('Unsupported %r' % num)
+    if exp < 0:
         dscale = -exp
     else:
         dscale = 0
