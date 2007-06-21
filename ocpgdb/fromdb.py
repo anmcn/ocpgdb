@@ -28,7 +28,6 @@ def value_from_db(from_db, cell):
     except KeyError:
         raise InterfaceError('No from_db function for type %r (column %r, value %r)'% (cell.type, cell.name, cell.value))
     try:
-        print cvt, array_from_db
         if cvt is array_from_db:
             return cvt(from_db, cell.value)
         else:

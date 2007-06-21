@@ -249,8 +249,8 @@ class NumericConversion(ConversionTestCase):
         self.both(D('1e-1000'))         # 1 word, weight -250, dscale 1000
         self.both(D('-1e-1000'))        # 1 word, weight -250, dscale 1000
         self.both(D('NaN'))
-        self.errorval(ocpgdb.InternalError, D('Infinity'))
-        self.errorval(ocpgdb.InternalError, D('-Infinity'))
+        self.errorval(ocpgdb.DataError, D('Infinity'))
+        self.errorval(ocpgdb.DataError, D('-Infinity'))
 
 
 class TextConversion(ConversionTestCase):
