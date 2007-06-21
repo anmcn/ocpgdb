@@ -1,4 +1,5 @@
 # Standard library
+import sys
 import itertools
 import re
 import types
@@ -197,18 +198,18 @@ class Connection(PgConnection):
     def _value_to_db(self, value):
         if value is None:
             return None
+        vtype = type(value)
+        if vtype is types.InstanceType:
+            vtype = value.__class__
         try:
-            vtype = type(value)
-            if vtype is types.InstanceType:
-                vtype = value.__class__
             cvt = self.to_db[vtype]
         except KeyError:
-            raise DataError('no to_db function for %r' % type(value))
-        return cvt(value)
+            raise DataError('no to_db function for %r' % vtype)
         try:
             return cvt(value)
         except Exception, e:
-            raise InternalError('column value %r: %s' % (value, e))
+            raise InternalError, 'column value %r: %s' % (value, e),\
+                  sys.exc_info()[2]
 
     def _args_to_db(self, args):
         return [self._value_to_db(a) for a in args]
