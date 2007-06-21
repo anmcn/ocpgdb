@@ -175,44 +175,15 @@ class Connection(PgConnection):
         fromdb._set_mx_datetime(self.set_from_db, bool(self.integer_datetimes))
         todb._set_mx_datetime(self.set_to_db, bool(self.integer_datetimes))
 
-    def _result_column(self, cell):
-        if cell.value is None:
-            return None
-        try:
-            cvt = self.from_db[cell.type]
-        except KeyError:
-            raise InterfaceError('No from_db function for type %r (column %r, value %r)'% (cell.type, cell.name, cell.value))
-        else:
-            try:
-                return cvt(cell.value)
-            except Exception, e:
-                raise InternalError('failed to convert column value %r (column %r, type %r): %s' % (cell.value, cell.name, cell.type, e))
-
     def _result_row(self, row):
-        return tuple([self._result_column(cell) for cell in row])
+        return tuple([fromdb.value_from_db(self.from_db, cell) for cell in row])
 
     def _result_rows(self, result):
         if result.result_type == 'DQL':
             return [self._result_row(row) for row in result]
 
-    def _value_to_db(self, value):
-        if value is None:
-            return None
-        vtype = type(value)
-        if vtype is types.InstanceType:
-            vtype = value.__class__
-        try:
-            cvt = self.to_db[vtype]
-        except KeyError:
-            raise DataError('no to_db function for %r' % vtype)
-        try:
-            return cvt(value)
-        except Exception, e:
-            raise InternalError, 'column value %r: %s' % (value, e),\
-                  sys.exc_info()[2]
-
     def _args_to_db(self, args):
-        return [self._value_to_db(a) for a in args]
+        return [todb.value_to_db(self.to_db, a) for a in args]
 
     def _execute(self, cmd, args=()):
         args = self._args_to_db(args)

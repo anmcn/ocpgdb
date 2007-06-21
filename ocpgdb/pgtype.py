@@ -162,20 +162,30 @@ def pack_numeric(num):
 #		dimension lower subscript bound (int4)
 #	for each array element:
 #		element value, in the appropriate format
-def _pack_array(oid, dims, element_data):
+def pack_array(array_oid, data_oid, dims, element_data):
     data = []
-    data.append(struct.pack('!llL', len(dims), 0, pgoid.array_types[oid]))
+    data.append(struct.pack('!llL', len(dims), 0, data_oid))
     for dim in dims:
         data.append(struct.pack('!ll', dim, 0))
     for element in element_data:
         data.append(struct.pack('!l', len(element)))
         data.append(element)
-    return oid, ''.join(data)
+    return array_oid, ''.join(data)
 
-def pack_int_array(array):
-    element_data = []
-    for element in array:
-        oid, data = pgtype.pack_int4(element)
-        assert oid == pgoid.int4
-        element_data.append(data)
-    return _pack_array(pgoid._int4, [len(element_data)], element_data)
+def unpack_array(data):
+    hdr_fmt = '!llL'
+    hdr_size = struct.calcsize(hdr_fmt)
+    ndims, flags, data_oid = struct.unpack(hdr_fmt, data[:hdr_size])
+    assert flags == 0
+    dims_fmt = '!' + 'll' * ndims
+    dims_size = struct.calcsize(dims_fmt)
+    dims = struct.unpack(dims_fmt, data[hdr_size:hdr_size+dims_size])[::2]
+    offset = hdr_size+dims_size
+    elements = []
+    while offset < len(data):
+        data_offset = offset+4
+        size = struct.unpack('!l', data[offset:data_offset])[0]
+        end_offset = data_offset + size
+        elements.append(data[data_offset:end_offset])
+        offset = end_offset
+    return data_oid, dims, elements
