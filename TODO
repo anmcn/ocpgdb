@@ -4,8 +4,6 @@
 - PG array support
 - tuple/set support
 - optionally return dict as row
-- move date/time packing to pgtype (rename pgconversion?)
-- make decimal tests conditional
 - fallbacks for PQexecParams problem? Protocol 2 fallbacks (PQexec)?
 
   PQexecParams fundementally broken with a V7 server:

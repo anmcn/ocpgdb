@@ -3,11 +3,17 @@ import unittest
 import ocpgdb
 import operator
 import datetime
-import decimal
+try:
+    import decimal
+    have_decimal = True
+except ImportError:
+    print 'WARNING: Decimal not available, tests skipped'
+    have_decimal = False
 try:
     from mx import DateTime
     have_mx = True
 except ImportError:
+    print 'WARNING: mx.DateTime not available, tests skipped'
     have_mx = False
 
 scratch_db = dict(dbname='ocpgdb_test', port=5433)
@@ -415,7 +421,6 @@ class ConversionSuite(unittest.TestSuite):
         Int2Conversion,
         Int8Conversion,
         FloatConversion,
-        NumericConversion,
         TextConversion,
         VarcharConversion,
         Varchar5Conversion,
@@ -425,17 +430,21 @@ class ConversionSuite(unittest.TestSuite):
         PyTimeConversion,
         PyDateConversion,
     ]
-    if have_mx:
-        tests.extend([
-            MxTimestampConversion,
-            MxTimeConversion,
-            MxDateConversion,
-            MxIntervalConversion,
-        ])
+    mx_tests = [
+        MxTimestampConversion,
+        MxTimeConversion,
+        MxDateConversion,
+        MxIntervalConversion,
+    ]
     def __init__(self):
         unittest.TestSuite.__init__(self)
         for test in self.tests:
             self.addTest(test())
+        if have_decimal:
+            self.addTest(NumericConversion())
+        if have_mx:
+            for test in self.mx_tests:
+                self.addTest(test())
 
 
 class OCPGDBSuite(unittest.TestSuite):
