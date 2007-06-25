@@ -47,6 +47,7 @@ set_from_db(pgoid.oid, pgtype.unpack_oid)
 set_from_db(pgoid.text, str)
 set_from_db(pgoid.varchar, str)
 set_from_db(pgoid.bpchar, str)
+set_from_db(pgoid.name, str)
 set_from_db(pgoid.bytea, bytea)
 try:
     import cvtdecimal
