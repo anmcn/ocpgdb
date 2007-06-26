@@ -1,5 +1,6 @@
-- add "notice" support
+!!! add "notice" support
 - implement executemany (use prepared statements?)
+- PG copy support
 - PG large object support
 - PG array support
 - tuple/set support

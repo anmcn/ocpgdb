@@ -33,6 +33,11 @@ class BasicTests(unittest.TestCase):
             'Binary', 'Date', 'Time', 'Timestamp', 
             'DateFromTicks', 'TimestampFromTicks', 'TimeFromTicks',
             'STRING', 'BINARY', 'NUMBER', 'DATETIME', 'ROWID',
+            # Extensions - setErrorVerbosity
+            'ERRORS_TERSE', 'ERRORS_DEFAULT', 'ERRORS_VERBOSE',
+            # Extensions - transactionStatus
+            'TRANS_IDLE', 'TRANS_ACTIVE', 'TRANS_INTRANS',
+            'TRANS_INERROR', 'TRANS_INERROR', 'TRANS_UNKNOWN',
         )
         for attr in mandatory_attrs:
             self.failUnless(hasattr(ocpgdb, attr), 
@@ -67,6 +72,11 @@ class BasicTests(unittest.TestCase):
         self.failUnless(isinstance(c.serverVersion, int))
         self.failUnless(c.serverVersion >= 70000)
         self.failUnless(not c.closed)
+        self.assertEqual(c.transactionStatus, ocpgdb.TRANS_IDLE)
+        old_verb = c.setErrorVerbosity(ocpgdb.ERRORS_VERBOSE)
+        self.assertEqual(old_verb, ocpgdb.ERRORS_DEFAULT)
+        old_verb = c.setErrorVerbosity(ocpgdb.ERRORS_DEFAULT)
+        self.assertEqual(old_verb, ocpgdb.ERRORS_VERBOSE)
         c.close()
         self.failUnless(c.closed)
         self.assertRaises(ocpgdb.ProgrammingError, getattr, c, 'host')

@@ -72,6 +72,12 @@ typedef struct {
 	PyObject *value;	
 } PyPgCell;
 
+typedef struct {
+    PyObject_HEAD
+    long ob_ival;
+    PyObject *ob_name;
+} PyPgConst;
+
 extern PyObject *PqErr_Warning;
 extern PyObject *PqErr_Error;
 extern PyObject *PqErr_InterfaceError;
@@ -83,6 +89,12 @@ extern PyObject *PqErr_InternalError;
 extern PyObject *PqErr_ProgrammingError;
 extern PyObject *PqErr_NotSupportedError;
 
+/* pqconstants.c */
+extern void pg_constants_init(PyObject *module);
+extern PyObject *set_module_const(PyObject *, const char *, int);
+#define MODULECONST(M, N, V) \
+	if ((PyPg_##N = set_module_const(M, #N, V)) < 0) \
+		return;
 
 /* pqconnection.c */
 extern void pg_connection_init(PyObject *module);

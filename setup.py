@@ -37,6 +37,7 @@ PG_LIB_DIR = pg_config['LIBDIR']
 
 sources = [
     'oclibpq/oclibpq.c',
+    'oclibpq/pqconstants.c',
     'oclibpq/pqconnection.c',
     'oclibpq/pqexception.c',
     'oclibpq/pqresult.c',

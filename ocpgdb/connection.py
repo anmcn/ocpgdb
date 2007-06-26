@@ -241,15 +241,15 @@ class Connection(PgConnection):
         return self._result_rows(self._execute(cmd, args))
 
     def begin(self):
-        if self.transactionStatus == 'IDLE':
+        if self.transactionStatus == TRANS_IDLE:
             self._execute('BEGIN WORK')
 
     def commit(self):
-        if self.transactionStatus != 'IDLE':
+        if self.transactionStatus != TRANS_IDLE:
             self._execute('COMMIT WORK')
 
     def rollback(self):
-        if self.transactionStatus != 'IDLE':
+        if self.transactionStatus != TRANS_IDLE:
             self._execute('ROLLBACK WORK')
 
     def cursor(self, name=None):

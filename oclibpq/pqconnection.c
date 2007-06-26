@@ -2,6 +2,18 @@
 
 #include "oclibpq.h"
 
+// PGVerbosity enum for PQsetErrorVerbosity()
+PyObject *PyPg_ERRORS_TERSE;
+PyObject *PyPg_ERRORS_DEFAULT;
+PyObject *PyPg_ERRORS_VERBOSE;
+
+// PQtransactionStatus()
+PyObject *PyPg_TRANS_IDLE;
+PyObject *PyPg_TRANS_ACTIVE;
+PyObject *PyPg_TRANS_INTRANS;
+PyObject *PyPg_TRANS_INERROR;
+PyObject *PyPg_TRANS_UNKNOWN;
+
 static int
 _not_open(PyPgConnection *self)
 {
@@ -259,6 +271,28 @@ connection_fileno(PyPgConnection *self, PyObject *unused)
 }
 
 static PyObject *
+connection_error_verb(PyPgConnection *self, PyObject *args)
+{
+	int level, oldlevel;
+	PyObject *ret;
+
+	if (!PyArg_ParseTuple(args, "i:setErrorVerbosity", &level)) 
+		return NULL;
+	if (_not_open(self)) return NULL;
+	oldlevel = PQsetErrorVerbosity(self->connection, level);
+	switch (oldlevel) {
+	case PQERRORS_TERSE:	ret = PyPg_ERRORS_TERSE; break;
+	case PQERRORS_DEFAULT:	ret = PyPg_ERRORS_DEFAULT; break;
+	case PQERRORS_VERBOSE:	ret = PyPg_ERRORS_VERBOSE; break;
+	default:
+		// PQsetErrorVerbosity does no error checking!
+		return PyInt_FromLong(oldlevel);
+	}
+	Py_INCREF(ret);
+	return ret;
+}
+
+static PyObject *
 get_closed(PyPgConnection *self)
 {
 	PyObject *res = self->connection ? Py_False : Py_True;
@@ -334,17 +368,18 @@ get_serverVersion(PyPgConnection *self)
 static PyObject *
 get_transactionStatus(PyPgConnection *self)
 {
-	const char *status;
+	PyObject *status;
 	if (_not_open(self)) return NULL;
 	switch (PQtransactionStatus(self->connection)) {
-	case PQTRANS_IDLE:	status = "IDLE"; break;
-	case PQTRANS_ACTIVE:	status = "ACTIVE"; break;
-	case PQTRANS_INTRANS:	status = "INTRANS"; break;
-	case PQTRANS_INERROR:	status = "INERROR"; break;
+	case PQTRANS_IDLE:	status = PyPg_TRANS_IDLE; break;
+	case PQTRANS_ACTIVE:	status = PyPg_TRANS_ACTIVE; break;
+	case PQTRANS_INTRANS:	status = PyPg_TRANS_INTRANS; break;
+	case PQTRANS_INERROR:	status = PyPg_TRANS_INERROR; break;
 	case PQTRANS_UNKNOWN:
-	default:		status = "UNKNOWN"; break;
+	default:		status = PyPg_TRANS_UNKNOWN; break;
 	}
-	return PyString_FromString(status);
+	Py_INCREF(status);
+	return status;
 }
 
 static PyObject *
@@ -383,6 +418,9 @@ static PyMethodDef PyPgConnection_methods[] = {
 		PyDoc_STR("Execute an SQL command")},
 	{"fileno", (PyCFunction)connection_fileno, METH_NOARGS,
 		PyDoc_STR("Returns socket file descriptor")},
+	{"setErrorVerbosity", (PyCFunction)connection_error_verb, METH_VARARGS,
+		PyDoc_STR("Sets error verbosity - ERRORS_TERSE, ERRORS_DEFAULT, or ERRORS_VERBOSE")},
+
 	{NULL, NULL}
 };
 
@@ -468,6 +506,9 @@ pg_connection_init(PyObject *module)
 {
 	if (PyType_Ready(&PyPgConnection_Type) < 0)
 		return;
+
+	// Copy module level exceptions onto the connection type as required 
+	// by the DB-API:
 #define ADDEXC(n, v) \
 	Py_INCREF(v); \
 	if (PyDict_SetItemString(PyPgConnection_Type.tp_dict, n, v) < 0)\
@@ -483,6 +524,20 @@ pg_connection_init(PyObject *module)
 	ADDEXC("ProgrammingError", PqErr_ProgrammingError)
 	ADDEXC("NotSupportedError", PqErr_NotSupportedError)
 #undef ADDEXC
+
+	// PGVerbosity enum for PQsetErrorVerbosity()
+	MODULECONST(module, ERRORS_TERSE, PQERRORS_TERSE);
+	MODULECONST(module, ERRORS_DEFAULT, PQERRORS_DEFAULT);
+	MODULECONST(module, ERRORS_VERBOSE, PQERRORS_VERBOSE);
+
+	// PQtransactionStatus()
+	MODULECONST(module, TRANS_IDLE, PQTRANS_IDLE);
+	MODULECONST(module, TRANS_ACTIVE, PQTRANS_ACTIVE);
+	MODULECONST(module, TRANS_INTRANS, PQTRANS_INTRANS);
+	MODULECONST(module, TRANS_INERROR, PQTRANS_INERROR);
+	MODULECONST(module, TRANS_INERROR, PQTRANS_INERROR);
+	MODULECONST(module, TRANS_UNKNOWN, PQTRANS_UNKNOWN);
+
 	Py_INCREF(&PyPgConnection_Type);
 	PyModule_AddObject(module, "PgConnection", 
 			   (PyObject *)&PyPgConnection_Type);
