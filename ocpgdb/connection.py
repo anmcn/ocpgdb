@@ -88,6 +88,11 @@ class Cursor:
             self.result_type = result.result_type
         return self
 
+    def executemany(self, cmd, arglist):
+        # We could be much smarter about this...
+        for args in arglist:
+            self.execute(cmd, args)
+
     def _fetch(self, count=None):
         self._assert_open()
         if count is not None:
