@@ -243,9 +243,10 @@ class NumericConversion(ConversionTestCase):
         self.both(D('1'))               # 1 word
         self.both(D('-1'))              # 1 word
         self.both(D('1000'))            # 1 word
-        self.both(D('-1000'))           # 1 word
-        self.both(D('1e4'), '10000')    # 1 word, weight 1, dscale 0
-        self.both(D('-1e4'), '-10000')  # 1 word, weight 1, dscale 0
+        self.both(D('-1000'))           # 1 word, weight 0, dscale 0
+        self.both(D('-10.00'))          # 1 word, weight 0, dscale 2
+        self.both(D('10000'))           # 1 word, weight 1, dscale 0
+        self.both(D('-10000'))          # 1 word, weight 1, dscale 0
         self.both(D('.001'))            # 1 word, weight -1, dscale 3
         self.both(D('-.001'))           # 1 word, weight -1, dscale 3
         self.both(D('.0001'))           # 1 word, weight -1, dscale 4

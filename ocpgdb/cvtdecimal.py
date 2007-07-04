@@ -18,10 +18,10 @@ def _unpack_digits(words):
             d = word // s % 10
             if digits or d:
                 digits.append(d)
-    return tuple(digits)
+    return digits
 
 def unpack_numeric(buf):
-    ndigits, weight, sign, dscale = struct.unpack('!HhHH', buf[:8])
+    nwords, weight, sign, dscale = struct.unpack('!HhHH', buf[:8])
     if sign == NUMERIC_POS:
         sign = 0
     elif sign == NUMERIC_NEG:
@@ -30,13 +30,27 @@ def unpack_numeric(buf):
         return decimal.Decimal('NaN')
     else:
         raise ValueError('Invalid numeric sign: %0x' % sign)
-    if ndigits:
-        words = struct.unpack('!%dH' % ndigits, buf[8:])
+    if nwords:
+        words = struct.unpack('!%dH' % nwords, buf[8:])
         digits = _unpack_digits(words)
-        cull = (4 - dscale) % 4
-        exp = (weight + 1 - ndigits) * 4 + cull
-        if cull:
-            digits = digits[:-cull]
+        exp = (weight + 1 - nwords) * 4
+        if 0 < exp < 20:
+            # PG suppresses trailing zeros - we add them back if least signif.
+            # digit is on the LHS of the decimal. Not strictly necessary, but
+            # it's what users expect.
+            digits = digits + [0] * exp
+            exp = 0
+        if dscale:
+            align = dscale + exp
+#        print digits, dscale, exp, align
+            if align < 0:
+                # Need to trim off extraneous decimal zeros
+                del digits[align:]
+                exp -= align
+            elif align > 0:
+                # Need to add suppressed trailing decimal zeros
+                digits += [0] * align
+                exp -= align
     else:
         exp = -dscale
         digits = (0,)

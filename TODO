@@ -1,4 +1,5 @@
 !!! add "notice" support
+    allow "error" and "notice" PGresults
 - implement executemany (use prepared statements?)
 - PG copy support
 - PG large object support
