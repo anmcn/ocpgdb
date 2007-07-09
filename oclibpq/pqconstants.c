@@ -107,3 +107,64 @@ pg_constants_init(PyObject *m)
 	if (PyType_Ready(&PyPgConst_Type) < 0)
 		return;
 }
+
+/*
+ * This creates python "constants" mimicking a C enum, and initialises a simple
+ * structure for mapping from the enum values to the corresponding python
+ * constant. The enums must have a range of less than CONSTENUM_RANGE.
+ */
+#define CONSTENUM_RANGE 1000
+PyPgConstEnum *
+pgconst_make_enum(PyObject *module, char *name, PyPgConstEnumInit *init)
+{
+	PyPgConstEnumInit *ip;
+	PyPgConstEnum *e;
+	PyObject *econst;
+	int lower, upper;
+	size_t size;
+
+	lower = upper = 0;
+	for (ip = init; ip->name; ++ip) {
+		if (ip->value < lower)
+			lower = ip->value;
+		if (ip->value > upper)
+			upper = ip->value;
+	}
+	if (upper < lower || upper - lower > CONSTENUM_RANGE) {
+		PyErr_Format(PyExc_SystemError, 
+			MODULE_NAME " PgConst enum range error (%d->%d)",
+			lower, upper);
+		return NULL;
+	}
+	size = (upper - lower) * sizeof(PyObject *);
+	if ((e = PyMem_Malloc(sizeof(PyPgConstEnum))) == NULL)
+		return NULL;
+	e->values = PyMem_Malloc(size);
+	memset(e->values, 0, size);
+	if (e->values == NULL)
+		return NULL;
+	e->name = name;
+	e->lower = lower;
+	e->upper = upper;
+	for (ip = init; ip->name; ++ip) {
+		econst = set_module_const(module, ip->name, ip->value);
+		e->values[ip->value - lower] = econst;
+	}
+	return e;
+}
+
+PyObject *
+pgconst_from_enum(PyPgConstEnum *e, int value)
+{
+	PyObject *o = NULL;
+
+	if (value >= e->lower && value <= e->upper)
+		o = e->values[value - e->lower];
+	if (o == NULL) {
+		PyErr_Format(PyExc_ValueError, "enum %s value %d not found",
+				e->name, value);
+		return NULL;
+	}
+	Py_INCREF(o);
+	return o;
+}

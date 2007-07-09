@@ -3,16 +3,10 @@
 #include "oclibpq.h"
 
 // PGVerbosity enum for PQsetErrorVerbosity()
-PyObject *PyPg_ERRORS_TERSE;
-PyObject *PyPg_ERRORS_DEFAULT;
-PyObject *PyPg_ERRORS_VERBOSE;
+static PyPgConstEnum *PyPg_ERRORS;
 
 // PQtransactionStatus()
-PyObject *PyPg_TRANS_IDLE;
-PyObject *PyPg_TRANS_ACTIVE;
-PyObject *PyPg_TRANS_INTRANS;
-PyObject *PyPg_TRANS_INERROR;
-PyObject *PyPg_TRANS_UNKNOWN;
+static PyPgConstEnum *PyPg_TRANS;
 
 static int
 _not_open(PyPgConnection *self)
@@ -274,22 +268,12 @@ static PyObject *
 connection_error_verb(PyPgConnection *self, PyObject *args)
 {
 	int level, oldlevel;
-	PyObject *ret;
 
 	if (!PyArg_ParseTuple(args, "i:setErrorVerbosity", &level)) 
 		return NULL;
 	if (_not_open(self)) return NULL;
 	oldlevel = PQsetErrorVerbosity(self->connection, level);
-	switch (oldlevel) {
-	case PQERRORS_TERSE:	ret = PyPg_ERRORS_TERSE; break;
-	case PQERRORS_DEFAULT:	ret = PyPg_ERRORS_DEFAULT; break;
-	case PQERRORS_VERBOSE:	ret = PyPg_ERRORS_VERBOSE; break;
-	default:
-		// PQsetErrorVerbosity does no error checking!
-		return PyInt_FromLong(oldlevel);
-	}
-	Py_INCREF(ret);
-	return ret;
+	return pgconst_from_enum(PyPg_ERRORS, oldlevel);
 }
 
 static PyObject *
@@ -368,18 +352,9 @@ get_serverVersion(PyPgConnection *self)
 static PyObject *
 get_transactionStatus(PyPgConnection *self)
 {
-	PyObject *status;
 	if (_not_open(self)) return NULL;
-	switch (PQtransactionStatus(self->connection)) {
-	case PQTRANS_IDLE:	status = PyPg_TRANS_IDLE; break;
-	case PQTRANS_ACTIVE:	status = PyPg_TRANS_ACTIVE; break;
-	case PQTRANS_INTRANS:	status = PyPg_TRANS_INTRANS; break;
-	case PQTRANS_INERROR:	status = PyPg_TRANS_INERROR; break;
-	case PQTRANS_UNKNOWN:
-	default:		status = PyPg_TRANS_UNKNOWN; break;
-	}
-	Py_INCREF(status);
-	return status;
+	return pgconst_from_enum(PyPg_TRANS, 
+				 PQtransactionStatus(self->connection));
 }
 
 static PyObject *
@@ -501,6 +476,23 @@ static PyTypeObject PyPgConnection_Type = {
 	PyObject_GC_Del,			/* tp_free */
 };
 
+static PyPgConstEnumInit ERRORS_init[] = {
+	{ "ERRORS_TERSE", PQERRORS_TERSE },
+	{ "ERRORS_DEFAULT", PQERRORS_DEFAULT },
+	{ "ERRORS_VERBOSE", PQERRORS_VERBOSE },
+	{ NULL },
+};
+
+static PyPgConstEnumInit TRANS_init[] = {
+	{ "TRANS_IDLE", PQTRANS_IDLE },
+	{ "TRANS_ACTIVE", PQTRANS_ACTIVE },
+	{ "TRANS_INTRANS", PQTRANS_INTRANS },
+	{ "TRANS_INERROR", PQTRANS_INERROR },
+	{ "TRANS_INERROR", PQTRANS_INERROR },
+	{ "TRANS_UNKNOWN", PQTRANS_UNKNOWN },
+	{ NULL },
+};
+
 void
 pg_connection_init(PyObject *module)
 {
@@ -526,17 +518,14 @@ pg_connection_init(PyObject *module)
 #undef ADDEXC
 
 	// PGVerbosity enum for PQsetErrorVerbosity()
-	MODULECONST(module, ERRORS_TERSE, PQERRORS_TERSE);
-	MODULECONST(module, ERRORS_DEFAULT, PQERRORS_DEFAULT);
-	MODULECONST(module, ERRORS_VERBOSE, PQERRORS_VERBOSE);
+	PyPg_ERRORS = pgconst_make_enum(module, "PQERRORS", ERRORS_init);
+	if (PyPg_ERRORS == NULL)
+		return;
 
 	// PQtransactionStatus()
-	MODULECONST(module, TRANS_IDLE, PQTRANS_IDLE);
-	MODULECONST(module, TRANS_ACTIVE, PQTRANS_ACTIVE);
-	MODULECONST(module, TRANS_INTRANS, PQTRANS_INTRANS);
-	MODULECONST(module, TRANS_INERROR, PQTRANS_INERROR);
-	MODULECONST(module, TRANS_INERROR, PQTRANS_INERROR);
-	MODULECONST(module, TRANS_UNKNOWN, PQTRANS_UNKNOWN);
+	PyPg_TRANS = pgconst_make_enum(module, "PQTRANS", TRANS_init);
+	if (PyPg_TRANS == NULL)
+		return;
 
 	Py_INCREF(&PyPgConnection_Type);
 	PyModule_AddObject(module, "PgConnection", 

@@ -36,6 +36,18 @@ typedef int Py_ssize_t;
 #define MODULE_NAME "oclibpq"
 
 typedef struct {
+	char		*name;
+	int	 	value;
+} PyPgConstEnumInit;
+
+typedef struct {
+	char		*name;
+	int		 lower;
+	int		 upper;
+	PyObject       **values;
+} PyPgConstEnum;
+
+typedef struct {
 	PyStringObject	str;
 } PyPgBytea;
 
@@ -85,6 +97,9 @@ extern PyObject *PqErr_NotSupportedError;
 /* pqconstants.c */
 extern void pg_constants_init(PyObject *module);
 extern PyObject *set_module_const(PyObject *, const char *, int);
+extern PyPgConstEnum *pgconst_make_enum(PyObject *, char *name, 
+					PyPgConstEnumInit *);
+extern PyObject *pgconst_from_enum(PyPgConstEnum *, int);
 #define MODULECONST(M, N, V) \
 	if ((PyPg_##N = set_module_const(M, #N, V)) < 0) \
 		return;

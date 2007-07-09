@@ -3,14 +3,7 @@
 #include "oclibpq.h"
 
 // PQresultStatus
-PyObject *PyPg_PGRES_EMPTY_QUERY;
-PyObject *PyPg_PGRES_COMMAND_OK;
-PyObject *PyPg_PGRES_TUPLES_OK;
-PyObject *PyPg_PGRES_COPY_OUT;
-PyObject *PyPg_PGRES_COPY_IN;
-PyObject *PyPg_PGRES_BAD_RESPONSE;
-PyObject *PyPg_PGRES_NONFATAL_ERROR;
-PyObject *PyPg_PGRES_FATAL_ERROR;
+static PyPgConstEnum *PyPg_PGRES;
 
 static void
 PyPgResult_dealloc(PyObject *o)
@@ -245,21 +238,7 @@ static PyTypeObject PyPgResult_Type = {
 static PyObject *
 _getResultStatus(PGresult *result)
 {
-	PyObject *status;
-	switch (PQresultStatus(result)) {
-	case PGRES_EMPTY_QUERY: status = PyPg_PGRES_EMPTY_QUERY; break;
-	case PGRES_COMMAND_OK: status = PyPg_PGRES_COMMAND_OK; break;
-	case PGRES_TUPLES_OK: status = PyPg_PGRES_TUPLES_OK; break;
-	case PGRES_COPY_OUT: status = PyPg_PGRES_COPY_OUT; break;
-	case PGRES_COPY_IN: status = PyPg_PGRES_COPY_IN; break;
-	case PGRES_BAD_RESPONSE: status = PyPg_PGRES_BAD_RESPONSE; break;
-	case PGRES_NONFATAL_ERROR: status = PyPg_PGRES_NONFATAL_ERROR; break;
-	case PGRES_FATAL_ERROR: status = PyPg_PGRES_FATAL_ERROR; break;
-	default:
-		return PyInt_FromLong(PQresultStatus(result));
-	}
-	Py_INCREF(status);
-	return status;
+	return pgconst_from_enum(PyPg_PGRES, PQresultStatus(result));
 }
 
 PyObject *
@@ -287,6 +266,18 @@ PyPgResult_New(PyPgConnection *connection, PGresult *result)
 	return (PyObject *)self;
 }
 
+static PyPgConstEnumInit PGRES_init[] = {
+	{ "PGRES_EMPTY_QUERY", PGRES_EMPTY_QUERY },
+	{ "PGRES_COMMAND_OK", PGRES_COMMAND_OK },
+	{ "PGRES_TUPLES_OK", PGRES_TUPLES_OK },
+	{ "PGRES_COPY_OUT", PGRES_COPY_OUT },
+	{ "PGRES_COPY_IN", PGRES_COPY_IN },
+	{ "PGRES_BAD_RESPONSE", PGRES_BAD_RESPONSE },
+	{ "PGRES_NONFATAL_ERROR", PGRES_NONFATAL_ERROR },
+	{ "PGRES_FATAL_ERROR", PGRES_FATAL_ERROR },
+	{ NULL },
+};
+
 void
 pg_result_init(PyObject *module)
 {
@@ -294,15 +285,9 @@ pg_result_init(PyObject *module)
 		return;
 
 	// PQresultStatus
-	MODULECONST(module, PGRES_EMPTY_QUERY, PGRES_EMPTY_QUERY);
-	MODULECONST(module, PGRES_COMMAND_OK, PGRES_COMMAND_OK);
-	MODULECONST(module, PGRES_TUPLES_OK, PGRES_TUPLES_OK);
-	MODULECONST(module, PGRES_COPY_OUT, PGRES_COPY_OUT);
-	MODULECONST(module, PGRES_COPY_IN, PGRES_COPY_IN);
-	MODULECONST(module, PGRES_BAD_RESPONSE, PGRES_BAD_RESPONSE);
-	MODULECONST(module, PGRES_NONFATAL_ERROR, PGRES_NONFATAL_ERROR);
-	MODULECONST(module, PGRES_FATAL_ERROR, PGRES_FATAL_ERROR);
-
+	PyPg_PGRES = pgconst_make_enum(module, "PGRES", PGRES_init);
+	if (PyPg_PGRES == NULL)
+		return;
 /*
 	Py_INCREF(&PyPgResult_Type);
 	PyModule_AddObject(module, "PgResult", 
