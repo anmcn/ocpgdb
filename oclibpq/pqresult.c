@@ -2,6 +2,16 @@
 
 #include "oclibpq.h"
 
+// PQresultStatus
+PyObject *PyPg_PGRES_EMPTY_QUERY;
+PyObject *PyPg_PGRES_COMMAND_OK;
+PyObject *PyPg_PGRES_TUPLES_OK;
+PyObject *PyPg_PGRES_COPY_OUT;
+PyObject *PyPg_PGRES_COPY_IN;
+PyObject *PyPg_PGRES_BAD_RESPONSE;
+PyObject *PyPg_PGRES_NONFATAL_ERROR;
+PyObject *PyPg_PGRES_FATAL_ERROR;
+
 static void
 PyPgResult_dealloc(PyObject *o)
 {
@@ -12,6 +22,7 @@ PyPgResult_dealloc(PyObject *o)
 		self->result = NULL;
 		PQclear(res);
 	}
+	Py_XDECREF(self->status);
 	Py_XDECREF(self->connection);
 	Py_XDECREF(self->columns);
 
@@ -23,86 +34,6 @@ PyPgResult_iter(PyObject *self)
 {
 	Py_INCREF(self);
 	return self;
-}
-
-static PyObject *
-PyPgResult_iternext(PyPgResult *self)
-{
-	PyObject *row, *cell_value, *cell;
-	PyPgCell *master_cell;
-	char *value;
-	size_t len;
-	int i;
-	int format;
-	int ncolumns = PyTuple_GET_SIZE(self->columns);
-	PGresult *result = self->result;
-	int row_number = self->row_number;
-
-	if (row_number >= self->row_count)
-		return NULL;
-
-	row = PyTuple_New(ncolumns);
-	if (row == NULL)
-		return NULL;
-	for (i = 0; i < ncolumns; ++i) {
-		master_cell = (PyPgCell *)PyTuple_GET_ITEM(self->columns, i);
-		format = PyInt_AS_LONG(master_cell->format);
-		if (PQgetisnull(result, row_number, i)) {
-			Py_INCREF(Py_None);
-			cell_value = Py_None;
-		} else if (format == 0) {
-			value = PQgetvalue(result, row_number, i);
-			value = (char *)PQunescapeBytea((unsigned char *)value, &len);
-			cell_value = PyString_FromStringAndSize(value, len);
-			PQfreemem(value);
-			if (cell_value == NULL) {
-				Py_DECREF(row);
-				return NULL;
-			}
-		} else if (format == 1) {
-			value = PQgetvalue(result, row_number, i);
-			len = PQgetlength(result, row_number, i);
-			cell_value = PyString_FromStringAndSize(value, len);
-			if (cell_value == NULL) {
-				Py_DECREF(row);
-				return NULL;
-			}
-		}
-		cell = PyPgCell_FromCell(master_cell, cell_value);
-		if (cell == NULL) {
-			Py_DECREF(cell_value);
-			Py_DECREF(row);
-			return NULL;
-		}
-		PyTuple_SET_ITEM(row, i, cell);
-	}
-	++self->row_number;
-	return row;
-}
-
-
-static PyObject *
-get_result_type(PyPgResult *self)
-{
-	char *type_str;
-
-	switch (self->result_type) {
-	case RESULT_DQL:	type_str = "DQL"; break;
-	case RESULT_DDL:	type_str = "DDL"; break;
-	case RESULT_DML:	type_str = "DML"; break;
-	case RESULT_EMPTY:	type_str = "EMPTY"; break;
-	default:
-		PyErr_Format(PqErr_InternalError, 
-		 	"Unknown query type: %d", self->result_type);
-		return NULL;
-	}
-	return PyString_FromString(type_str);
-}
-
-static PyObject *
-get_status(PyPgResult *self)
-{
-	return PyInt_FromLong(PQresultStatus(self->result));
 }
 
 static PyObject *
@@ -153,6 +84,95 @@ get_oid(PyPgResult *self)
 	return Py_None;
 }
 
+static PyObject *
+get_errorMessage(PyPgResult *self)
+{
+	return PyString_FromString(PQresultErrorMessage(self->result));
+}
+
+static PyObject *
+get_columns(PyPgResult *self)
+{
+	if (self->columns == NULL) {
+		PGresult *result = self->result;
+		int ncolumns = PQnfields(result);
+		PyObject *columns, *cell;
+		int i;
+
+		columns = PyTuple_New(ncolumns);
+		if (columns == NULL)
+			return NULL;
+		for (i = 0; i < ncolumns; ++i) {
+			if ((cell = PyPgCell_New(result, i)) == NULL) {
+				Py_DECREF(columns);
+				return NULL;
+			}
+			PyTuple_SET_ITEM(columns, i, cell);
+		}
+		self->columns = columns;
+	}
+	Py_INCREF(self->columns);
+	return self->columns;
+}
+
+static PyObject *
+PyPgResult_iternext(PyPgResult *self)
+{
+	PyObject *row, *cell_value, *cell, *columns;
+	PyPgCell *master_cell;
+	char *value;
+	size_t len;
+	int i;
+	int format;
+	int ncolumns;
+	PGresult *result = self->result;
+	int row_number = self->row_number;
+
+	if (row_number >= self->row_count)
+		return NULL;
+
+	if ((columns = get_columns(self)) == NULL)
+		return NULL;
+	ncolumns = PyTuple_GET_SIZE(columns);
+
+	if ((row = PyTuple_New(ncolumns)) == NULL)
+		return NULL;
+
+	for (i = 0; i < ncolumns; ++i) {
+		master_cell = (PyPgCell *)PyTuple_GET_ITEM(columns, i);
+		format = PyInt_AS_LONG(master_cell->format);
+		if (PQgetisnull(result, row_number, i)) {
+			Py_INCREF(Py_None);
+			cell_value = Py_None;
+		} else if (format == 0) {
+			value = PQgetvalue(result, row_number, i);
+			value = (char *)PQunescapeBytea((unsigned char *)value, &len);
+			cell_value = PyString_FromStringAndSize(value, len);
+			PQfreemem(value);
+			if (cell_value == NULL)
+				goto failed;
+		} else if (format == 1) {
+			value = PQgetvalue(result, row_number, i);
+			len = PQgetlength(result, row_number, i);
+			cell_value = PyString_FromStringAndSize(value, len);
+			if (cell_value == NULL)
+				goto failed;
+		}
+		cell = PyPgCell_FromCell(master_cell, cell_value);
+		if (cell == NULL) {
+			Py_DECREF(cell_value);
+			goto failed;
+		}
+		PyTuple_SET_ITEM(row, i, cell);
+	}
+	Py_DECREF(columns);
+	++self->row_number;
+	return row;
+failed:
+	Py_DECREF(row);
+	Py_DECREF(columns);
+	return NULL;
+}
 
 static PyMethodDef PyPgResult_methods[] = {
 	{NULL, NULL}
@@ -160,19 +180,19 @@ static PyMethodDef PyPgResult_methods[] = {
 
 #define MO(m) offsetof(PyPgResult, m)
 static PyMemberDef PyPgResult_members[] = {
-	{"columns",	T_OBJECT,	MO(columns),	RO},
+	{"status",	T_OBJECT,	MO(status),	RO},
 	{NULL}
 };
 #undef MO
 
 static PyGetSetDef PyPgResult_getset[] = {
-	{"result_type",		(getter)get_result_type},
-	{"status",		(getter)get_status},
-	{"ntuples",		(getter)get_ntuples},
-	{"nfields",		(getter)get_nfields},
 	{"binaryTuples",	(getter)get_binaryTuples},
 	{"cmdStatus",		(getter)get_cmdStatus},
 	{"cmdTuples",		(getter)get_cmdTuples},
+	{"columns",		(getter)get_columns},
+	{"errorMessage",	(getter)get_errorMessage},
+	{"nfields",		(getter)get_nfields},
+	{"ntuples",		(getter)get_ntuples},
 	{"oid",			(getter)get_oid},
 	{NULL}
 };
@@ -222,89 +242,34 @@ static PyTypeObject PyPgResult_Type = {
 	0,					/* tp_free */
 };
 
-static void 
-PQErr_FromResult(PGresult *result, PGconn *connection)
+static PyObject *
+_getResultStatus(PGresult *result)
 {
-	PyObject *exc;
-	char *errmsg = PQerrorMessage(connection);
-
-	switch (PQresultStatus(result))
-	{
-		case PGRES_NONFATAL_ERROR:
-			exc = PqErr_ProgrammingError;
-			break;
-
-		case PGRES_FATAL_ERROR:
-			if (strstr(errmsg, "referential integrity violation"))
-				exc = PqErr_IntegrityError;
-			else
-				exc = PqErr_OperationalError;
-			break;
-
-		default:
-			exc = PqErr_InternalError;
-			break;
+	PyObject *status;
+	switch (PQresultStatus(result)) {
+	case PGRES_EMPTY_QUERY: status = PyPg_PGRES_EMPTY_QUERY; break;
+	case PGRES_COMMAND_OK: status = PyPg_PGRES_COMMAND_OK; break;
+	case PGRES_TUPLES_OK: status = PyPg_PGRES_TUPLES_OK; break;
+	case PGRES_COPY_OUT: status = PyPg_PGRES_COPY_OUT; break;
+	case PGRES_COPY_IN: status = PyPg_PGRES_COPY_IN; break;
+	case PGRES_BAD_RESPONSE: status = PyPg_PGRES_BAD_RESPONSE; break;
+	case PGRES_NONFATAL_ERROR: status = PyPg_PGRES_NONFATAL_ERROR; break;
+	case PGRES_FATAL_ERROR: status = PyPg_PGRES_FATAL_ERROR; break;
+	default:
+		return PyInt_FromLong(PQresultStatus(result));
 	}
-
-	PyErr_SetString(exc, errmsg);
-}
-
-PyObject *
-_PyPgResult_Columns(PGresult *result)
-{
-	PyObject *columns, *cell;
-	int ncolumns = PQnfields(result);
-	int i;
-
-	columns = PyTuple_New(ncolumns);
-	if (columns == NULL)
-		return NULL;
-	for (i = 0; i < ncolumns; ++i) {
-		if ((cell = PyPgCell_New(result, i)) == NULL) {
-			Py_DECREF(columns);
-			return NULL;
-		}
-		PyTuple_SET_ITEM(columns, i, cell);
-	}
-	return columns;
+	Py_INCREF(status);
+	return status;
 }
 
 PyObject *
 PyPgResult_New(PyPgConnection *connection, PGresult *result)
 {
 	PyPgResult *self;
-	enum result_type result_type;
 
 	if (!result) {
 		PyErr_SetString(PqErr_OperationalError,
 				PQerrorMessage(connection->connection));
-		return NULL;
-	}
-
-	switch (PQresultStatus(result)) {
-	case PGRES_TUPLES_OK:
-		result_type = RESULT_DQL;
-		break;
-
-	case PGRES_COMMAND_OK:
-	case PGRES_COPY_OUT:
-	case PGRES_COPY_IN:
-		{
-			char *ct;
-			result_type = RESULT_DDL;
-			ct = PQcmdTuples(result);
-			if (ct[0])
-				result_type = RESULT_DML;
-		}
-		break;
-
-	case PGRES_EMPTY_QUERY:
-		result_type = RESULT_EMPTY;
-		break;
-
-	default:
-		PQErr_FromResult(result, connection->connection);
-		PQclear(result);
 		return NULL;
 	}
 
@@ -315,16 +280,11 @@ PyPgResult_New(PyPgConnection *connection, PGresult *result)
 	Py_INCREF(connection);
 	self->connection = connection;
 	self->result = result;
-	self->result_type = result_type;
 	self->row_number = 0;
 	self->row_count = PQntuples(result);
-	if ((self->columns = _PyPgResult_Columns(result)) == NULL)
-		goto error;
+	self->columns = NULL;
+	self->status = _getResultStatus(self->result);
 	return (PyObject *)self;
-
-error:
-	Py_DECREF(self);
-	return NULL;
 }
 
 void
@@ -332,6 +292,17 @@ pg_result_init(PyObject *module)
 {
 	if (PyType_Ready(&PyPgResult_Type) < 0)
 		return;
+
+	// PQresultStatus
+	MODULECONST(module, PGRES_EMPTY_QUERY, PGRES_EMPTY_QUERY);
+	MODULECONST(module, PGRES_COMMAND_OK, PGRES_COMMAND_OK);
+	MODULECONST(module, PGRES_TUPLES_OK, PGRES_TUPLES_OK);
+	MODULECONST(module, PGRES_COPY_OUT, PGRES_COPY_OUT);
+	MODULECONST(module, PGRES_COPY_IN, PGRES_COPY_IN);
+	MODULECONST(module, PGRES_BAD_RESPONSE, PGRES_BAD_RESPONSE);
+	MODULECONST(module, PGRES_NONFATAL_ERROR, PGRES_NONFATAL_ERROR);
+	MODULECONST(module, PGRES_FATAL_ERROR, PGRES_FATAL_ERROR);
+
 /*
 	Py_INCREF(&PyPgResult_Type);
 	PyModule_AddObject(module, "PgResult", 

@@ -72,20 +72,26 @@ class Cursor:
             self.connection.begin()
             cmd = 'DECLARE "%s" CURSOR WITHOUT HOLD FOR %s' % (self.__name, cmd)
         result = self._execute(cmd, args)
-        self.result_type = result.result_type
-        if result.result_type == 'DQL':
+        if result.status == PGRES_TUPLES_OK:
+            self.result_type = 'DQL'
             self.__result = result
             self.rowcount = result.ntuples
             self.description = self._make_description(result)
-        elif result.result_type == 'DML':
+        elif result.status == PGRES_EMPTY_QUERY:
+            self.result_type = 'EMPTY'
+        elif result.status == PGRES_COMMAND_OK:
             self.rowcount = result.cmdTuples
             self.oidValue = result.oid
+            if self.rowcount:
+                self.result_type = 'DML'
+            else:
+                self.result_type = 'DDL'
         elif use_cursor:
             self.__cursor = True
             # We need to FETCH anyway to get the column descriptions.
             result = self._execute('FETCH 0 FROM "%s"' % self.__name)
+            self.result_type = 'DQL'
             self.description = self._make_description(result)
-            self.result_type = result.result_type
         return self
 
     def executemany(self, cmd, arglist):
@@ -184,7 +190,7 @@ class Connection(PgConnection):
         return tuple([fromdb.value_from_db(self.from_db, cell) for cell in row])
 
     def _result_rows(self, result):
-        if result.result_type == 'DQL':
+        if result.status == PGRES_TUPLES_OK:
             return [self._result_row(row) for row in result]
 
     def _args_to_db(self, args):
@@ -192,7 +198,16 @@ class Connection(PgConnection):
 
     def _execute(self, cmd, args=()):
         args = self._args_to_db(args)
-        return PgConnection.execute(self, cmd, args)
+        result = PgConnection.execute(self, cmd, args)
+        if result.status == PGRES_NONFATAL_ERROR:
+            raise ProgrammingError(result.errorMessage)
+        elif result.status == PGRES_FATAL_ERROR:
+            msg = result.errorMessage
+            if 'referential integrity violation' in msg:
+                raise IntegrityError(msg)
+            else:
+                raise OperationalError(msg)
+        return result
 
     def _normalise_dict_args(self, cmd, dictargs):
         class DictArgs:

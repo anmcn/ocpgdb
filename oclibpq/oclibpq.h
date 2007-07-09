@@ -35,13 +35,6 @@ typedef int Py_ssize_t;
 
 #define MODULE_NAME "oclibpq"
 
-enum result_type {
-	RESULT_DQL,
-	RESULT_DDL,
-	RESULT_DML,
-	RESULT_EMPTY,
-};
-
 typedef struct {
 	PyStringObject	str;
 } PyPgBytea;
@@ -57,7 +50,7 @@ typedef struct {
 	PyObject_HEAD
 	PyPgConnection	*connection;
 	PGresult	*result;
-	enum result_type result_type;
+	PyObject	*status;
 	int		 row_number;
 	int		 row_count;
 	PyObject 	*columns;
