@@ -38,6 +38,16 @@ class BasicTests(unittest.TestCase):
             # Extensions - transactionStatus
             'TRANS_IDLE', 'TRANS_ACTIVE', 'TRANS_INTRANS',
             'TRANS_INERROR', 'TRANS_INERROR', 'TRANS_UNKNOWN',
+            # Extensions - PQresultStatus
+            'PGRES_EMPTY_QUERY', 'PGRES_COMMAND_OK', 'PGRES_TUPLES_OK',
+            'PGRES_COPY_OUT', 'PGRES_COPY_IN', 'PGRES_BAD_RESPONSE',
+            'PGRES_NONFATAL_ERROR', 'PGRES_FATAL_ERROR',
+            # Extensions - PQresultErrorField
+            "DIAG_SEVERITY", "DIAG_SQLSTATE", "DIAG_MESSAGE_PRIMARY",
+            "DIAG_MESSAGE_DETAIL", "DIAG_MESSAGE_HINT",
+            "DIAG_STATEMENT_POSITION", "DIAG_INTERNAL_POSITION",
+            "DIAG_INTERNAL_QUERY", "DIAG_CONTEXT", "DIAG_SOURCE_FILE",
+            "DIAG_SOURCE_LINE",
         )
         for attr in mandatory_attrs:
             self.failUnless(hasattr(ocpgdb, attr), 
@@ -90,11 +100,48 @@ class BasicTests(unittest.TestCase):
         self.assertRaises(ocpgdb.ProgrammingError, getattr, c, 'serverVersion')
         self.assertRaises(ocpgdb.ProgrammingError, c.close)
 
+    def test_result(self):
+        c = ocpgdb.connect(**scratch_db)
+        # Null command
+        result = ocpgdb.PgConnection.execute(c, '', ())
+        self.assertEqual(result.status, ocpgdb.PGRES_COMMAND_OK)
+        # Error command
+        result = ocpgdb.PgConnection.execute(c, 'nonsense_command', ())
+        self.assertEqual(result.status, ocpgdb.PGRES_FATAL_ERROR)
+        self.assertEqual(result.errorMessage, 
+            'ERROR:  syntax error at or near "nonsense_command"\n'
+            'LINE 1: nonsense_command\n'
+            '        ^\n')
+        self.assertEqual(result.errorField(ocpgdb.DIAG_SEVERITY), 'ERROR')
+        self.assertEqual(result.errorField(ocpgdb.DIAG_SQLSTATE), '42601')
+        self.assertEqual(result.errorField(ocpgdb.DIAG_MESSAGE_PRIMARY), 
+                            'syntax error at or near "nonsense_command"')
+        self.assertEqual(result.errorField(ocpgdb.DIAG_MESSAGE_DETAIL), None)
+        self.assertEqual(result.errorField(ocpgdb.DIAG_MESSAGE_HINT), None)
+        self.assertEqual(result.errorField(ocpgdb.DIAG_STATEMENT_POSITION), '1')
+        self.assertEqual(result.errorField(ocpgdb.DIAG_INTERNAL_POSITION), None)
+        self.assertEqual(result.errorField(ocpgdb.DIAG_INTERNAL_QUERY), None)
+        self.assertEqual(result.errorField(ocpgdb.DIAG_CONTEXT), None)
+        # Simple select
+        result = ocpgdb.PgConnection.execute(c, 'select null', ())
+        self.assertEqual(result.status, ocpgdb.PGRES_TUPLES_OK)
+        rows = list(result)
+        self.assertEqual(len(rows), 1)
+        row = rows[0]
+        self.assertEqual(len(row), 1)
+        cell = row[0]
+        self.assertEqual(cell.format, 1)
+        self.assertEqual(cell.modifier, -1)
+        self.assertEqual(cell.name, '?column?')
+        self.assertEqual(cell.type, ocpgdb.pgoid.unknown)
+        self.assertEqual(cell.value, None)
+
 
 class BasicSuite(unittest.TestSuite):
     tests = [
         'test_module_const',
         'test_connect',
+        'test_result',
     ]
     def __init__(self):
         unittest.TestSuite.__init__(self, map(BasicTests, self.tests))

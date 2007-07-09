@@ -4,6 +4,8 @@
 
 // PQresultStatus
 static PyPgConstEnum *PyPg_PGRES;
+// PQresultErrorField
+static PyPgConstEnum *PyPg_DIAG;
 
 static void
 PyPgResult_dealloc(PyObject *o)
@@ -167,7 +169,25 @@ failed:
 	return NULL;
 }
 
+static PyObject *
+get_errorField(PyPgResult *self, PyObject *args)
+{
+	int fieldcode;
+	char *errorfield;
+
+	if (!PyArg_ParseTuple(args, "i:errorField", &fieldcode)) 
+		return NULL;
+	errorfield = PQresultErrorField(self->result, fieldcode);
+	if (errorfield == NULL) {
+		Py_INCREF(Py_None);
+		return Py_None;
+	}
+	return PyString_FromString(errorfield);
+}
+
 static PyMethodDef PyPgResult_methods[] = {
+	{"errorField", (PyCFunction)get_errorField, METH_VARARGS,
+		PyDoc_STR("Returns an individual field of an error report.")},
 	{NULL, NULL}
 };
 
@@ -275,7 +295,23 @@ static PyPgConstEnumInit PGRES_init[] = {
 	{ "PGRES_BAD_RESPONSE", PGRES_BAD_RESPONSE },
 	{ "PGRES_NONFATAL_ERROR", PGRES_NONFATAL_ERROR },
 	{ "PGRES_FATAL_ERROR", PGRES_FATAL_ERROR },
-	{ NULL },
+	{ NULL }
+};
+
+static PyPgConstEnumInit DIAG_init[] = {
+	{ "DIAG_SEVERITY", PG_DIAG_SEVERITY },
+	{ "DIAG_SQLSTATE", PG_DIAG_SQLSTATE },
+	{ "DIAG_MESSAGE_PRIMARY", PG_DIAG_MESSAGE_PRIMARY },
+	{ "DIAG_MESSAGE_DETAIL", PG_DIAG_MESSAGE_DETAIL },
+	{ "DIAG_MESSAGE_HINT", PG_DIAG_MESSAGE_HINT },
+	{ "DIAG_STATEMENT_POSITION", PG_DIAG_STATEMENT_POSITION },
+	{ "DIAG_INTERNAL_POSITION", PG_DIAG_INTERNAL_POSITION },
+	{ "DIAG_INTERNAL_QUERY", PG_DIAG_INTERNAL_QUERY },
+	{ "DIAG_CONTEXT", PG_DIAG_CONTEXT },
+	{ "DIAG_SOURCE_FILE", PG_DIAG_SOURCE_FILE },
+	{ "DIAG_SOURCE_LINE", PG_DIAG_SOURCE_LINE },
+	{ "DIAG_SOURCE_FUNCTION", PG_DIAG_SOURCE_FUNCTION },
+	{ NULL }
 };
 
 void
@@ -287,6 +323,10 @@ pg_result_init(PyObject *module)
 	// PQresultStatus
 	PyPg_PGRES = pgconst_make_enum(module, "PGRES", PGRES_init);
 	if (PyPg_PGRES == NULL)
+		return;
+	// PQresultErrorField
+	PyPg_DIAG = pgconst_make_enum(module, "PG_DIAG", DIAG_init);
+	if (PyPg_DIAG == NULL)
 		return;
 /*
 	Py_INCREF(&PyPgResult_Type);
