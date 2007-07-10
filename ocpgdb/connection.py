@@ -157,12 +157,14 @@ class Connection(PgConnection):
                 allow           first try non-SSL, then SSL connection
                 prefer          (the default) first try SSL, then non-SSL
                 require         require an SSL connection
+            show_notices        write Postgres notice messages to stderr
             use_mx_datetime     accept and return mx.DateTime types
         """
         # Positional connection arguments are a horrible idea - only support
         # keyword args until convinced otherwise.
         if 'database' in kwargs:
             kwargs['dbname'] = kwargs.pop('database')
+        self.show_notices = kwargs.pop('show_notices', False)
         use_mx_datetime = kwargs.pop('use_mx_datetime', False)
         conninfo = ' '.join(['%s=%s' % i for i in kwargs.items()])
         PgConnection.__init__(self, conninfo)
@@ -199,9 +201,16 @@ class Connection(PgConnection):
     def _args_to_db(self, args):
         return [todb.value_to_db(self.to_db, a) for a in args]
 
+    def notice(self, msg):
+        sys.stderr.write(msg)
+
     def _execute(self, cmd, args=()):
         args = self._args_to_db(args)
         result = PgConnection.execute(self, cmd, args)
+        if self.show_notices:
+            for msg in self.notices:
+                self.notice(msg)
+            del self.notices[:]
         if result.status == PGRES_NONFATAL_ERROR:
             raise ProgrammingError(result.errorMessage)
         elif result.status == PGRES_FATAL_ERROR:

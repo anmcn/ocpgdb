@@ -19,6 +19,29 @@ _not_open(PyPgConnection *self)
 	return 0;
 }
 
+static void
+PyPgNoticeProcessor(void *arg, const char *message)
+{
+	/* Note that this function may be called with the GIL released - we
+	 * must aquire the GIL before touching any Python structures */
+
+	/* We would have liked to implement a NoticeReceiver, but the passed
+	 * PGrequest object is cleared by the caller as soon as the receiver
+	 * returns, which severely limits it's usefulness */
+
+	PyPgConnection *self = (PyPgConnection *)arg;
+	PyGILState_STATE gstate;
+	PyObject *msg;
+
+	gstate = PyGILState_Ensure();
+
+	if ((msg = PyString_FromString(message)) != NULL)
+		PyList_Append(self->notices, msg);
+
+	/* No Python API calls allowed beyond this point */
+	PyGILState_Release(gstate);
+}
+
 static int
 PyPgConnection_init(PyObject *o, PyObject *args, PyObject *kwds)
 {
@@ -81,6 +104,7 @@ PyPgConnection_init(PyObject *o, PyObject *args, PyObject *kwds)
 		return -1;
 	if ((self->notices = PyList_New(0)) == NULL)
 		return -1;
+	PQsetNoticeProcessor(cnx, PyPgNoticeProcessor, self);
 	return 0;
 }
 
