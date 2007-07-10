@@ -136,7 +136,7 @@ pgconst_make_enum(PyObject *module, char *name, PyPgConstEnumInit *init)
 			lower, upper);
 		return NULL;
 	}
-	size = (upper - lower) * sizeof(PyObject *);
+	size = (upper - lower + 1) * sizeof(PyObject *);
 	if ((e = PyMem_Malloc(sizeof(PyPgConstEnum))) == NULL)
 		return NULL;
 	e->values = PyMem_Malloc(size);
