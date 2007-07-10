@@ -80,18 +80,21 @@ class Cursor:
         elif result.status == PGRES_EMPTY_QUERY:
             self.result_type = 'EMPTY'
         elif result.status == PGRES_COMMAND_OK:
-            self.rowcount = result.cmdTuples
-            self.oidValue = result.oid
-            if self.rowcount:
-                self.result_type = 'DML'
+            if use_cursor:
+                self.__cursor = True
+                # We need to FETCH anyway to get the column descriptions.
+                result = self._execute('FETCH 0 FROM "%s"' % self.__name)
+                self.result_type = 'DQL'
+                self.description = self._make_description(result)
             else:
-                self.result_type = 'DDL'
-        elif use_cursor:
-            self.__cursor = True
-            # We need to FETCH anyway to get the column descriptions.
-            result = self._execute('FETCH 0 FROM "%s"' % self.__name)
-            self.result_type = 'DQL'
-            self.description = self._make_description(result)
+                self.rowcount = result.cmdTuples
+                self.oidValue = result.oid
+                if self.rowcount:
+                    self.result_type = 'DML'
+                else:
+                    self.result_type = 'DDL'
+        else:
+            raise InternalError('Unexpected result status %s' % result.status)
         return self
 
     def executemany(self, cmd, arglist):
