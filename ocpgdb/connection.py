@@ -234,7 +234,7 @@ class Connection(PgConnection):
                     try:
                         self.args.append(self.dictargs[k])
                     except KeyError:
-                        raise ProgrammingError('argument %%(%)s not found in dictionary' % k)
+                        raise ProgrammingError('argument %%(%s)s not found in dictionary' % k)
                     self.index += 1
                     self.fmtdict[k] = fmt = '$%d' % self.index
                 return fmt
