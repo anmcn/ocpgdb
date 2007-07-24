@@ -8,6 +8,43 @@ static PyPgConstEnum *PyPg_ERRORS;
 // PQtransactionStatus()
 static PyPgConstEnum *PyPg_TRANS;
 
+#if (PY_VERSION_HEX < 0x02040000)
+/* PyGILState_Release was buggy - fixed in r38830 by mwh on 2005-04-18*/
+static void
+PgPyGILState_Release(PyGILState_STATE oldstate)
+{
+	PyThreadState *tcur = PyGILState_GetThisThreadState();
+
+	if (tcur == NULL)
+		Py_FatalError("auto-releasing thread-state, "
+		              "but no thread-state for this thread");
+	// Sigh... private interface:
+        // assert(PyThreadState_IsCurrent(tcur));
+	--tcur->gilstate_counter;
+	assert(tcur->gilstate_counter >= 0); /* illegal counter value */
+
+	/* If we're going to destroy this thread-state, we must
+	 * clear it while the GIL is held, as destructors may run.
+	 */
+	if (tcur->gilstate_counter == 0) {
+		/* can't have been locked when we created it */
+		assert(oldstate == PyGILState_UNLOCKED);
+		PyThreadState_Clear(tcur);
+		/* Delete the thread-state.  Note this releases the GIL too!
+		 * It's vital that the GIL be held here, to avoid shutdown
+		 * races; see bugs 225673 and 1061968 (that nasty bug has a
+		 * habit of coming back).
+		 */
+		PyThreadState_DeleteCurrent();
+	}
+	/* Release the lock if necessary */
+	else if (oldstate == PyGILState_UNLOCKED)
+		PyEval_SaveThread();
+}
+#else
+#define PgPyGILState_Release PyGILState_Release
+#endif
+
 static int
 _not_open(PyPgConnection *self)
 {
@@ -39,7 +76,7 @@ PyPgNoticeProcessor(void *arg, const char *message)
 		PyList_Append(self->notices, msg);
 
 	/* No Python API calls allowed beyond this point */
-	PyGILState_Release(gstate);
+	PgPyGILState_Release(gstate);
 }
 
 static int
