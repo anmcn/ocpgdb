@@ -152,6 +152,10 @@ PyPgResult_iternext(PyPgResult *self)
 			cell_value = PyString_FromStringAndSize(value, len);
 			if (cell_value == NULL)
 				goto failed;
+		} else {
+			PyErr_Format(PqErr_InternalError, 
+				"Result cell format %d not supported", format);
+			goto failed;
 		}
 		cell = PyPgCell_FromCell(master_cell, cell_value);
 		if (cell == NULL) {
