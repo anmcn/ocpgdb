@@ -419,7 +419,7 @@ get_transactionStatus(PyPgConnection *self)
 }
 
 static PyObject *
-_get_parameter(PyPgConnection *self, char *parameter)
+_get_str_parameter(PyPgConnection *self, char *parameter)
 {
 	const char *value;
 
@@ -434,15 +434,31 @@ _get_parameter(PyPgConnection *self, char *parameter)
 }
 
 static PyObject *
+_get_bool_parameter(PyPgConnection *self, char *parameter)
+{
+	const char *value;
+        PyObject *res;
+
+	if (_not_open(self)) return NULL;
+	value = PQparameterStatus(self->connection, parameter);
+	if (value != NULL && strcmp(value, "on") == 0)
+		res = Py_True;
+	else
+		res = Py_False;
+	Py_INCREF(res);
+	return res;
+}
+
+static PyObject *
 get_client_encoding(PyPgConnection *self)
 {
-	return _get_parameter(self, "client_encoding");
+	return _get_str_parameter(self, "client_encoding");
 }
 
 static PyObject *
 get_integer_datetimes(PyPgConnection *self)
 {
-	return _get_parameter(self, "integer_datetimes");
+	return _get_bool_parameter(self, "integer_datetimes");
 }
 
 

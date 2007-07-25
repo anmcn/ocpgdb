@@ -184,12 +184,12 @@ class Connection(PgConnection):
         self.to_db[pytype] = fn
 
     def use_py_datetime(self):
-        fromdb._set_py_datetime(self.set_from_db, self.integer_datetimes=='on')
-        todb._set_py_datetime(self.set_to_db, self.integer_datetimes=='on')
+        fromdb._set_py_datetime(self.set_from_db, self.integer_datetimes)
+        todb._set_py_datetime(self.set_to_db, self.integer_datetimes)
 
     def use_mx_datetime(self):
-        fromdb._set_mx_datetime(self.set_from_db, self.integer_datetimes=='on')
-        todb._set_mx_datetime(self.set_to_db, self.integer_datetimes=='on')
+        fromdb._set_mx_datetime(self.set_from_db, self.integer_datetimes)
+        todb._set_mx_datetime(self.set_to_db, self.integer_datetimes)
 
     def _result_row(self, row):
         return tuple([fromdb.value_from_db(self.from_db, cell) for cell in row])
