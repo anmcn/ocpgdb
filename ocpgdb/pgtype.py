@@ -71,20 +71,33 @@ def pack_bytea(value):
     return pgoid.bytea, value
 
 # Depending on build time options, PG may send dates and times as floats or
-# ints. The connection parameter integer_datetimes allows us to tell.
+# ints. The connection parameter integer_datetimes allows us to tell. When
+# floats are used, typically the value is in seconds, but when ints are used,
+# the value is typically microseconds.
 
+usec_mul = 1000000.0
 # uS into day
 unpack_int_time, pack_int_time = _mk_fns(pgoid.time, '!q')
-unpack_flt_time, pack_flt_time = _mk_fns(pgoid.time, '!d')
+def unpack_flt_time(buf):
+    return struct.unpack('!d', buf)[0] * usec_mul
+def pack_flt_time(usecs):
+    return pgoid.time, struct.pack('!d', usecs / usec_mul)
 # uS from 2000-01-01
 unpack_int_timestamp, pack_int_timestamp = _mk_fns(pgoid.timestamp, '!q')
-unpack_flt_timestamp, pack_flt_timestamp = _mk_fns(pgoid.timestamp, '!d')
+def unpack_flt_timestamp(buf):
+    return struct.unpack('!d', buf)[0] * usec_mul
+def pack_flt_timestamp(usecs):
+    return pgoid.timestamp, struct.pack('!d', usecs / usec_mul)
 # days from 2000-01-01
 unpack_int_date, pack_int_date = _mk_fns(pgoid.date, '!l')
-unpack_flt_date, pack_flt_date = _mk_fns(pgoid.date, '!f')
+unpack_flt_date, pack_flt_date = _mk_fns(pgoid.date, '!l')
 # uS, days, months
 unpack_int_interval, pack_int_interval = _make_tuple_fns(pgoid.interval, '!qll')
-unpack_flt_interval, pack_flt_interval = _make_tuple_fns(pgoid.interval, '!dll')
+def unpack_flt_interval(buf):
+    seconds, days, months = struct.unpack('!dll', buf)
+    return seconds * usec_mul, days, months
+def pack_flt_interval(usecs, days, months):
+    return pgoid.interval, struct.pack('!dll', usecs / usec_mul, days, months)
 
 #       number of dimensions (int4)
 #	flags (int4)

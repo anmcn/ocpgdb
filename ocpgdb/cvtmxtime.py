@@ -17,18 +17,17 @@ def register_from(setfn, integer_datetimes):
         unpack_timestamp = pgtype.unpack_flt_timestamp
         unpack_date = pgtype.unpack_flt_date
         unpack_interval = pgtype.unpack_flt_interval
-    usec_mul = 1000000.0
     timestamp_epoch = DateTime.DateTime(2000,1,1)
     date_epoch = DateTime.Date(2000,1,1)
 
     def from_timestamp(buf):
-        seconds = round(unpack_timestamp(buf) / usec_mul, 2)
+        seconds = round(unpack_timestamp(buf) / pgtype.usec_mul, 2)
         delta = DateTime.DateTimeDeltaFromSeconds(seconds)
         return timestamp_epoch + delta
     setfn(pgoid.timestamp, from_timestamp)
 
     def from_time(buf):
-        seconds = round(unpack_time(buf) / usec_mul, 2)
+        seconds = round(unpack_time(buf) / pgtype.usec_mul, 2)
         return DateTime.Time(seconds=seconds)
     setfn(pgoid.time, from_time)
 
@@ -39,7 +38,7 @@ def register_from(setfn, integer_datetimes):
 
     def from_interval(buf):
         microseconds, days, months = unpack_interval(buf)
-        seconds = round(microseconds / usec_mul, 2)
+        seconds = round(microseconds / pgtype.usec_mul, 2)
         # Unfortunately, we can't use divmod here...
         hours = int(seconds / 3600.0)
         seconds = math.fmod(seconds, 3600.0)
