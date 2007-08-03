@@ -16,7 +16,7 @@ except ImportError:
     print 'WARNING: mx.DateTime not available, tests skipped'
     have_mx = False
 
-scratch_db = dict(dbname='ocpgdb_test', port=5433)
+scratch_db = dict(dbname='ocpgdb_test', port=5432)
 
 
 class BasicTests(unittest.TestCase):

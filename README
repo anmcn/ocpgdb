@@ -1,0 +1,6 @@
+Requires:
+    Python >= 2.3
+    PostgreSQL >= 8.1
+
+Optional:
+    mx.DateTime >= 3.0.0
