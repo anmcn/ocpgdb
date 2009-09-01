@@ -68,8 +68,9 @@ class Cursor:
         use_cursor = (self._re_DQL.match(cmd) is not None and
                       self._re_4UP.search(cmd) is None and 
                       self._re_IN2.search(cmd) is None)
-        if use_cursor:
+        if not self.connection.autocommit:
             self.connection.begin()
+        if use_cursor:
             cmd = 'DECLARE "%s" CURSOR WITHOUT HOLD FOR %s' % (self.__name, cmd)
         result = self._execute(cmd, args)
         if result.status == PGRES_TUPLES_OK:
@@ -159,12 +160,14 @@ class Connection(PgConnection):
                 require         require an SSL connection
             show_notices        write Postgres notice messages to stderr
             use_mx_datetime     accept and return mx.DateTime types
+            autocommit          transaction autocommit mode
         """
         # Positional connection arguments are a horrible idea - only support
         # keyword args until convinced otherwise.
         if 'database' in kwargs:
             kwargs['dbname'] = kwargs.pop('database')
         self.show_notices = kwargs.pop('show_notices', False)
+        self.autocommit = kwargs.pop('autocommit', False)
         use_mx_datetime = kwargs.pop('use_mx_datetime', False)
         conninfo = ' '.join(['%s=%s' % i for i in kwargs.items()])
         PgConnection.__init__(self, conninfo)
