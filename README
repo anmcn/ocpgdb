@@ -4,3 +4,20 @@ Requires:
 
 Optional:
     mx.DateTime >= 3.0.0
+
+Caveats:
+
+    Type casting often needs to be explicit. For example, if you have a
+    "timestamp" column "bah", the following query works with adapters
+    that use the old libpq protocol, but does not work with adapters
+    that use protocol 3:
+
+        curs.execute('SELECT * FROM foo WHERE bah > %s', '2006-1-1')
+
+    Alternatives include using a more appropriate type:
+
+        curs.execute('SELECT * FROM foo WHERE bah > %s', datetime.datime(2006,1,1))
+
+    Or adding an explicit SQL typecast:
+
+        curs.execute('SELECT * FROM foo WHERE bah > %s::timestamp', '2006-1-1')
