@@ -55,7 +55,10 @@ else:
             return __unpack(buf)[0]
         return _unpack, _pack
 
-unpack_bool, pack_bool = _mk_fns(pgoid.bool, '!B')
+_unpack_bool, pack_bool = _mk_fns(pgoid.bool, '!B')
+def unpack_bool(buf):
+    return bool(_unpack_bool(buf))
+
 unpack_int2, pack_int2 = _mk_fns(pgoid.int2, '!h')
 unpack_int4, pack_int4 = _mk_fns(pgoid.int4, '!l')
 unpack_oid, pack_oid = _mk_fns(pgoid.oid, '!L')
