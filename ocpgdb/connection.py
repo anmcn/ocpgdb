@@ -16,7 +16,7 @@ class Cursor:
     def __init__(self, connection, name=None):
         self.connection = connection
         if name is None:
-            name = 'OcPy_%08X' % id(self)
+            name = 'OcPy_%08X' % (id(self) & 0xffffffffL)
         self.__name = name
         self.__cursor = False
         self.reset()
