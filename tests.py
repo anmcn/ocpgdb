@@ -104,7 +104,7 @@ class BasicTests(unittest.TestCase):
         c = ocpgdb.connect(**scratch_db)
         # Null command
         result = ocpgdb.PgConnection.execute(c, '', ())
-        self.assertEqual(result.status, ocpgdb.PGRES_COMMAND_OK)
+        self.assertEqual(result.status, ocpgdb.PGRES_EMPTY_QUERY)
         # Error command
         result = ocpgdb.PgConnection.execute(c, 'nonsense_command', ())
         self.assertEqual(result.status, ocpgdb.PGRES_FATAL_ERROR)
@@ -230,8 +230,8 @@ class IntConversion(ConversionTestCase):
         self.both(-1)
         self.both(0)
         self.both(1)
-        self.both(sys.maxint)
-        self.both(-sys.maxint)
+        self.both(0x7FFFFFF)
+        self.both(-0x8000000)
 
 
 class Int2Conversion(ConversionTestCase):
@@ -243,7 +243,7 @@ class Int2Conversion(ConversionTestCase):
         self.both(0)
         self.both(1)
         self.both(0x7fff)
-        self.both(-0x7fff)
+        self.both(-0x8000)
         self.errorval(ocpgdb.OperationalError, 0xffff)
         self.errorval(ocpgdb.OperationalError, -0xffff)
 
@@ -256,8 +256,8 @@ class Int8Conversion(ConversionTestCase):
         self.both(-1)
         self.both(0)
         self.both(1)
-        self.both(sys.maxint * sys.maxint)
-        self.both(-sys.maxint * sys.maxint)
+        self.both(0x7FFFFFFFFFFFFFFFL)
+        self.both(-0x8000000000000000L)
 
 
 class FloatConversion(ConversionTestCase):
