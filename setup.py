@@ -26,7 +26,7 @@ you may need to install the postgres client library
 package (libpq-dev or similar)''')
 
 NAME = 'ocpgdb'
-VERSION = '1.0.2'
+VERSION = '1.0.3'
 DESCRIPTION = 'A simple and safe PostgreSQL DB-API 2 adapter'
 AUTHOR = 'Andrew McNamara', 'andrewm@object-craft.com.au'
 HOMEPAGE = 'http://www.object-craft.com.au/projects/ocpgdb/'

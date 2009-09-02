@@ -227,11 +227,19 @@ class IntConversion(ConversionTestCase):
 
     def runTest(self):
         self.roundtrip(None)
+        # int
         self.both(-1)
         self.both(0)
         self.both(1)
         self.both(0x7FFFFFF)
         self.both(-0x8000000)
+        # long
+        self.both(-1L)
+        self.both(0L)
+        self.both(1L)
+        self.both(0x7FFFFFFL)
+        self.both(-0x8000000L)
+
 
 
 class Int2Conversion(ConversionTestCase):
@@ -254,10 +262,15 @@ class Int8Conversion(ConversionTestCase):
     def runTest(self):
         self.roundtrip(None)
         self.both(-1)
+        self.both(-1L)
         self.both(0)
-        self.both(1)
+        self.both(0L)
+        self.both(1L)
         self.both(0x7FFFFFFFFFFFFFFFL)
         self.both(-0x8000000000000000L)
+        if sys.maxint > 0x7FFFFFFF:
+            self.both(0x7FFFFFFFFFFFFFFF)
+            self.both(-0x8000000000000000)
 
 
 class FloatConversion(ConversionTestCase):

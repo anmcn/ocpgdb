@@ -68,7 +68,7 @@ def value_to_db(to_db, value):
 
 set_to_db(bool, pgtype.pack_bool)
 set_to_db(float, pgtype.pack_float8)
-set_to_db(int, pgtype.pack_int4)
+set_to_db(int, pgtype.pack_int)
 set_to_db(long, pgtype.pack_int8)
 set_to_db(str, pgtype.pack_str)
 set_to_db(bytea, pgtype.pack_bytea)

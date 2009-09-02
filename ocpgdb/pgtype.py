@@ -1,5 +1,6 @@
 from __future__ import division
 # Standard Python Libs
+import sys
 import struct
 # Module libs
 from oclibpq import bytea
@@ -65,6 +66,14 @@ unpack_oid, pack_oid = _mk_fns(pgoid.oid, '!L')
 unpack_int8, pack_int8 = _mk_fns(pgoid.int8, '!q')
 unpack_float4, pack_float4 = _mk_fns(pgoid.float4, '!f')
 unpack_float8, pack_float8 = _mk_fns(pgoid.float8, '!d')
+if sys.maxint > 0x7fffffff:
+    def pack_int(value):
+        if value > 0x7fffffff or value < -0x80000000:
+            return pack_int8(value)
+        else:
+            return pack_int4(value)
+else:
+    pack_int = pack_int4
 
 unpack_str = str
 def pack_str(value):
