@@ -3,9 +3,15 @@
 # Usage: python setup.py install
 #
 
+import sys, os
 from distutils.core import setup, Extension
 from distutils import sysconfig
-import sys, os
+
+COMMANDS = {}
+if sys.version_info[0] == 3:
+    from distutils.command.build_py import build_py_2to3
+    COMMANDS['build_py'] = build_py_2to3
+
 
 def collect(cmd, help):
     config = {}
@@ -26,11 +32,11 @@ you may need to install the postgres client library
 package (libpq-dev or similar)''')
 
 NAME = 'ocpgdb'
-VERSION = '1.0.3'
+VERSION = '2.0.0alpha'
 DESCRIPTION = 'A simple and safe PostgreSQL DB-API 2 adapter'
 AUTHOR = 'Andrew McNamara', 'andrewm@object-craft.com.au'
-HOMEPAGE = 'http://www.object-craft.com.au/projects/ocpgdb/'
-DOWNLOAD = 'http://www.object-craft.com.au/projects/ocpgdb/download'
+HOMEPAGE = 'http://code.google.com/p/ocpgdb/'
+DOWNLOAD = 'http://code.google.com/p/ocpgdb/downloads/list'
 PG_INCL_DIR = pg_config['INCLUDEDIR']
 PG_LIB_DIR = pg_config['LIBDIR']
 
@@ -87,4 +93,5 @@ setup(
     platforms='Python 2.3 and later, PostgreSQL 8.0 and later',
     url=HOMEPAGE,
     version=VERSION,
+    cmdclass=COMMANDS,
 )

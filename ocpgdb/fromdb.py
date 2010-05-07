@@ -1,9 +1,11 @@
 from __future__ import division
 import sys
 # Module specific
-import pgoid, pgtype
+from ocpgdb import pgoid, pgtype
 from oclibpq import bytea, InterfaceError, InternalError
 
+# Note that this is the common from_db map - each connection object also has
+# it's own from_db map which overrides this:
 from_db = {}
 
 def set_from_db(pgtype, fn):
@@ -44,22 +46,31 @@ set_from_db(pgoid.int2, pgtype.unpack_int2)
 set_from_db(pgoid.int4, pgtype.unpack_int4)
 set_from_db(pgoid.int8, pgtype.unpack_int8)
 set_from_db(pgoid.oid, pgtype.unpack_oid)
-set_from_db(pgoid.text, str)
-set_from_db(pgoid.varchar, str)
-set_from_db(pgoid.bpchar, str)
-set_from_db(pgoid.name, str)
 set_from_db(pgoid.bytea, bytea)
 try:
-    import cvtdecimal
+    from ocpgdb import cvtdecimal
 except ImportError:
     pass
 else:
     set_from_db(pgoid.numeric, cvtdecimal.unpack_numeric)
 
+def _set_encoding(setfn, encoding):
+    if sys.version_info < (3,0) and encoding.lower() == 'latin1':
+        setfn(pgoid.text, str)
+        setfn(pgoid.varchar, str)
+        setfn(pgoid.bpchar, str)
+        setfn(pgoid.name, str)
+    else:
+        unpack_unicode = pgtype.mk_unpack_unicode(encoding)
+        setfn(pgoid.text, unpack_unicode)
+        setfn(pgoid.varchar, unpack_unicode)
+        setfn(pgoid.bpchar, unpack_unicode)
+        setfn(pgoid.name, unpack_unicode)
+
 def _set_py_datetime(setfn, integer_datetimes):
-    import cvtpytime
+    from ocpgdb import cvtpytime
     cvtpytime.register_from(setfn, integer_datetimes)
 
 def _set_mx_datetime(setfn, integer_datetimes):
-    import cvtmxtime
+    from ocpgdb import cvtmxtime
     cvtmxtime.register_from(setfn, integer_datetimes)

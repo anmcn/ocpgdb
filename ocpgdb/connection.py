@@ -5,8 +5,8 @@ import re
 import types
 # Module
 from oclibpq import *
-import fromdb
-import todb
+from ocpgdb import fromdb
+from ocpgdb import todb
 
 class Cursor:
     _re_DQL = re.compile(r'^\s*SELECT\s', re.IGNORECASE)
@@ -16,7 +16,7 @@ class Cursor:
     def __init__(self, connection, name=None):
         self.connection = connection
         if name is None:
-            name = 'OcPy_%08X' % (id(self) & 0xffffffffL)
+            name = 'OcPy_%08X' % (id(self) & 0xffffffff)
         self.__name = name
         self.__cursor = False
         self.reset()
@@ -61,10 +61,10 @@ class Cursor:
         return [(col.name, col.type, None, None, None, None, None)
                 for col in result.columns]
 
-    def execute(self, cmd, *args, **kwargs):
+    def execute(self, cmd, args=None):
         self._assert_open()
         self.reset()
-        cmd, args = self.connection._normalise_args(cmd, args, kwargs)
+        cmd, args = self.connection._normalise_args(cmd, args)
         use_cursor = (self._re_DQL.match(cmd) is not None and
                       self._re_4UP.search(cmd) is None and 
                       self._re_IN2.search(cmd) is None)
@@ -179,12 +179,17 @@ class Connection(PgConnection):
             self.use_mx_datetime()
         else:
             self.use_py_datetime()
+        self._set_encoding(self.client_encoding)
 
     def set_from_db(self, pgtype, fn):
         self.from_db[pgtype] = fn
 
     def set_to_db(self, pytype, fn):
         self.to_db[pytype] = fn
+
+    def _set_encoding(self, encoding):
+        fromdb._set_encoding(self.set_from_db, encoding)
+        todb._set_encoding(self.set_to_db, encoding)
 
     def use_py_datetime(self):
         fromdb._set_py_datetime(self.set_from_db, self.integer_datetimes)
@@ -257,22 +262,15 @@ class Connection(PgConnection):
             cmd.insert(i, '$%d' % i)
         return ''.join(cmd), seqargs
 
-    def _normalise_args(self, cmd, args, kwargs):
-        if not args and not kwargs:
+    def _normalise_args(self, cmd, args):
+        if not args:
             return cmd, ()
-        if kwargs:
-            if args:
-                raise ProgrammingError('Cannot mix dict and tuple args')
-            return self._normalise_dict_args(cmd, kwargs)
-        if len(args) == 1:
-            if hasattr(args[0], 'keys'):
-                return self._normalise_dict_args(cmd, args[0])
-            elif hasattr(args[0], '__iter__'):
-                return self._normalise_seq_args(cmd, args[0])
+        if hasattr(args, 'keys'):
+            return self._normalise_dict_args(cmd, args)
         return self._normalise_seq_args(cmd, args)
 
-    def execute(self, cmd, *args, **kwargs):
-        cmd, args = self._normalise_args(cmd, args, kwargs)
+    def execute(self, cmd, args=None):
+        cmd, args = self._normalise_args(cmd, args)
         return self._result_rows(self._execute(cmd, args))
 
     def begin(self):

@@ -11,31 +11,54 @@ PyPgCell_dealloc(PyPgCell *self)
 	Py_DECREF(self->format);
 	Py_DECREF(self->value);
 
-	self->ob_type->tp_free((PyObject *)self);
+	Py_TYPE(self)->tp_free((PyObject *)self);
 }
 
 static PyObject *
 PyPgCell_repr(PyPgCell *self)
 {
-	PyObject *value_repr = PyObject_Repr(self->value);
-	if (value_repr == NULL)
-		return NULL;
-	return PyString_FromFormat("<PyPgCell name '%s', type %ld, modifier %ld, value %s at %p>",
-				   PyString_AsString(self->name),
-				   PyInt_AsLong(self->type),
-				   PyInt_AsLong(self->modifier),
-				   PyString_AsString(value_repr),
-				   self);
+        PyObject *s;
+        PyObject *pieces;
+        PyObject *result = NULL;
 
+	/* Modern python's have %S and %R (str and repr) formatting available
+	 * with PyUnicode_FromFormat, which is what we achieve the hard way
+	 * here. */
+	pieces = PyList_New(0);
+	if (pieces == NULL)
+		return NULL;
+
+#define APPEND(p, n) {\
+	s = (n); \
+	if (!s) goto done; \
+	if (PyList_Append(p, s) < 0) goto done; \
+	Py_DECREF(s); \
+}
+
+	APPEND(pieces, PyString_FromString("<PyPgCell name "));
+	APPEND(pieces, PyObject_Repr(self->name));
+	APPEND(pieces, PyString_FromFormat(", type %ld, modifier %ld, value ",
+				PyInt_AsLong(self->type),
+				PyInt_AsLong(self->modifier)));
+	APPEND(pieces, PyObject_Repr(self->value));
+	APPEND(pieces, PyString_FromFormat(" at %p>", self));
+	s = PyString_FromString("");
+	if (!s) goto done;
+	result = PyString_Join(s, pieces);
+	Py_DECREF(s);
+done:
+	Py_DECREF(pieces);
+	return result;
+#undef APPEND
 }
 
 #define MO(m) offsetof(PyPgCell, m)
 static PyMemberDef PyPgCell_members[] = {
-	{"format",	T_OBJECT,	MO(format),	RO},
-	{"modifier",	T_OBJECT,	MO(modifier),	RO},
-	{"name",	T_OBJECT,	MO(name),	RO},
-	{"type",	T_OBJECT,	MO(type),	RO},
-	{"value",	T_OBJECT,	MO(value),	RO},
+	{"format",	T_OBJECT,	MO(format),	READONLY},
+	{"modifier",	T_OBJECT,	MO(modifier),	READONLY},
+	{"name",	T_OBJECT,	MO(name),	READONLY},
+	{"type",	T_OBJECT,	MO(type),	READONLY},
+	{"value",	T_OBJECT,	MO(value),	READONLY},
 	{NULL}
 };
 #undef MO
@@ -43,8 +66,7 @@ static PyMemberDef PyPgCell_members[] = {
 static char PyPgCell_doc[] = "XXX PgCell objects";
 
 static PyTypeObject PyPgCell_Type = {
-	PyObject_HEAD_INIT(NULL)
-	0,					/* ob_size */
+	PyVarObject_HEAD_INIT(NULL, 0)
 	MODULE_NAME ".PgCell",			/* tp_name */
 	sizeof(PyPgCell),			/* tp_basicsize */
 	0,					/* tp_itemsize */

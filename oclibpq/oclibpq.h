@@ -8,6 +8,45 @@
 #include <libpq-fe.h>
 #include <libpq/libpq-fs.h>
 
+/* Python 3 compatibility */
+#if PY_MAJOR_VERSION >= 3
+#define PyString_Type PyUnicode_Type
+#define PyStringObject PyUnicodeObject
+#define PyString_FromStringAndSize PyUnicode_FromStringAndSize
+#define PyString_FromString PyUnicode_FromString
+#define PyString_Check PyUnicode_Check
+#define PyString_FromFormat PyUnicode_FromFormat
+#define PyString_InternFromString PyUnicode_InternFromString
+#define PyString_Join PyUnicode_Join
+#define PyInt_Type PyLong_Type
+#define PyInt_Check PyLong_Check
+#define PyInt_AsLong PyLong_AsLong
+#define PyInt_FromLong PyLong_FromLong
+#define PyInt_FromString PyLong_FromString
+#else /* PY_MAJOR_VERSION < 3 */
+#define PyString_Join _PyString_Join
+#define PyBytesObject PyStringObject
+#define PyBytes_Type PyString_Type
+#define PyBytes_Check PyString_Check
+#define PyBytes_FromStringAndSize PyString_FromStringAndSize
+#define PyBytes_FromString PyString_FromString
+#define PyBytes_FromFormat PyString_FromFormat
+#define PyBytes_Size PyString_Size
+#define PyBytes_AsString PyString_AsString
+#define PyBytes_Repr PyString_Repr
+#define PyBytes_Format PyString_Format
+#define PyBytes_AsStringAndSize PyString_AsStringAndSize
+#endif /* PY_MAJOR_VERSION */
+
+/* Python 2.5 compatibility - copied from Python 2.6 */
+#ifndef PyVarObject_HEAD_INIT
+#define PyVarObject_HEAD_INIT(type, size)	\
+	PyObject_HEAD_INIT(type) size,
+#endif
+#ifndef Py_TYPE
+#define Py_TYPE(ob)		(((PyObject*)(ob))->ob_type)
+#endif
+
 /* Python 2.3 compatibility - copied from Python 2.5 source */
 #ifndef Py_VISIT
 #define Py_VISIT(op)							\
@@ -78,9 +117,9 @@ typedef struct {
 } PyPgCell;
 
 typedef struct {
-    PyObject_HEAD
-    long ob_ival;
-    PyObject *ob_name;
+	PyObject_HEAD
+	long ob_ival;
+	PyObject *ob_name;
 } PyPgConst;
 
 extern PyObject *PqErr_Warning;
@@ -100,9 +139,6 @@ extern PyObject *set_module_const(PyObject *, const char *, int);
 extern PyPgConstEnum *pgconst_make_enum(PyObject *, char *name, 
 					PyPgConstEnumInit *);
 extern PyObject *pgconst_from_enum(PyPgConstEnum *, int);
-#define MODULECONST(M, N, V) \
-	if ((PyPg_##N = set_module_const(M, #N, V)) < 0) \
-		return;
 
 /* pqconnection.c */
 extern void pg_connection_init(PyObject *module);

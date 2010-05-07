@@ -1,19 +1,26 @@
+# Python3 version of unit tests
+#
+# This differs from tests.py (after 2to3 conversion) in the following ways:
+#   
+#   * ByteaConversion test uses byte literals.
+#
 import sys
 import unittest
-import ocpgdb
 import operator
 import datetime
+del sys.path[0]
+import ocpgdb
 try:
     import decimal
     have_decimal = True
 except ImportError:
-    print 'WARNING: Decimal not available, tests skipped'
+    print('WARNING: Decimal not available, tests skipped')
     have_decimal = False
 try:
     from mx import DateTime
     have_mx = True
 except ImportError:
-    print 'WARNING: mx.DateTime not available, tests skipped'
+    print('WARNING: mx.DateTime not available, tests skipped')
     have_mx = False
 
 scratch_db = dict(dbname='ocpgdb_test', port=5432)
@@ -144,7 +151,7 @@ class BasicSuite(unittest.TestSuite):
         'test_result',
     ]
     def __init__(self):
-        unittest.TestSuite.__init__(self, map(BasicTests, self.tests))
+        unittest.TestSuite.__init__(self, list(map(BasicTests, self.tests)))
 
 
 class ConversionTestCase(unittest.TestCase):
@@ -234,11 +241,11 @@ class IntConversion(ConversionTestCase):
         self.both(0x7FFFFFF)
         self.both(-0x8000000)
         # long
-        self.both(-1L)
-        self.both(0L)
-        self.both(1L)
-        self.both(0x7FFFFFFL)
-        self.both(-0x8000000L)
+        self.both(-1)
+        self.both(0)
+        self.both(1)
+        self.both(0x7FFFFFF)
+        self.both(-0x8000000)
 
 
 
@@ -262,13 +269,13 @@ class Int8Conversion(ConversionTestCase):
     def runTest(self):
         self.roundtrip(None)
         self.both(-1)
-        self.both(-1L)
+        self.both(-1)
         self.both(0)
-        self.both(0L)
-        self.both(1L)
-        self.both(0x7FFFFFFFFFFFFFFFL)
-        self.both(-0x8000000000000000L)
-        if sys.maxint > 0x7FFFFFFF:
+        self.both(0)
+        self.both(1)
+        self.both(0x7FFFFFFFFFFFFFFF)
+        self.both(-0x8000000000000000)
+        if sys.maxsize > 0x7FFFFFFF:
             self.both(0x7FFFFFFFFFFFFFFF)
             self.both(-0x8000000000000000)
 
@@ -375,8 +382,8 @@ class ByteaConversion(ConversionTestCase):
 
     def runTest(self):
         self.roundtrip(None)
-        self.roundtrip(ocpgdb.bytea(''))
-        data = ocpgdb.bytea(''.join([chr(i) for i in range(256)]))
+        self.roundtrip(ocpgdb.bytea(b''))
+        data = ocpgdb.bytea(range(256))
         self.roundtrip(data)
 
 

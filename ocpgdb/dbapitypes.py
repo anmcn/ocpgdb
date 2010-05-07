@@ -35,7 +35,7 @@ class DBAPITypeObject(object):
         else:
             return -1
 
-import pgoid
+from ocpgdb import pgoid
 
 STRING = DBAPITypeObject(
     pgoid.bpchar, 
