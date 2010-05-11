@@ -55,7 +55,7 @@ def value_to_db(to_db, value):
         cvt = to_db[vtype]
     except KeyError:
         try:
-            cvt = to_db[vtype.__class__]
+            cvt = to_db[value.__class__]
         except KeyError:
             raise DataError('no to_db function for %r' % vtype)
     try:

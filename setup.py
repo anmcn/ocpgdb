@@ -4,6 +4,7 @@
 #
 
 import sys, os
+import re
 from distutils.core import setup, Extension
 from distutils import sysconfig
 
@@ -24,7 +25,7 @@ def collect(cmd, help):
         if f.close():
             sys.exit('%s failed - %s' % (cmd, help))
     return config
-        
+
 
 # Collect PG compile options
 pg_config = collect('pg_config', '''\
@@ -32,14 +33,15 @@ you may need to install the postgres client library
 package (libpq-dev or similar)''')
 
 NAME = 'ocpgdb'
-VERSION = '2.0.0alpha'
 DESCRIPTION = 'A simple and safe PostgreSQL DB-API 2 adapter'
 AUTHOR = 'Andrew McNamara', 'andrewm@object-craft.com.au'
 HOMEPAGE = 'http://code.google.com/p/ocpgdb/'
 DOWNLOAD = 'http://code.google.com/p/ocpgdb/downloads/list'
 PG_INCL_DIR = pg_config['INCLUDEDIR']
 PG_LIB_DIR = pg_config['LIBDIR']
-
+# Extract __version__ from module
+buf = open('ocpgdb/__init__.py').read()
+VERSION = re.search("__version__ = '(.*)'", buf).group(1)
 
 sources = [
     'oclibpq/oclibpq.c',

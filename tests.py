@@ -1,8 +1,13 @@
+import os
 import sys
 import unittest
-import ocpgdb
 import operator
 import datetime
+
+del sys.path[0]
+import ocpgdb
+print 'WARNING: testing %s' % os.path.dirname(ocpgdb.__file__)
+
 try:
     import decimal
     have_decimal = True
@@ -19,20 +24,21 @@ except ImportError:
 scratch_db = dict(dbname='ocpgdb_test', port=5432)
 
 
-class BasicTests(unittest.TestCase):
+class TestCase(unittest.TestCase):
+
+    def assertHasAttr(self, o, attr):
+        self.failUnless(hasattr(o, attr), 'no attribute %r' % attr)
+
+    def assertSubClass(self, sb, c):
+        self.failUnless(issubclass(sb, c), 
+                        '%r is not a subclass of %r' % (sb, c))
+
+
+class BasicTests(TestCase):
     def test_module_const(self):
         mandatory_attrs = (
             # General info:
-            'apilevel', 'threadsafety', 'paramstyle', '__version__', 
-            # Exceptions:
-            'Warning', 'Error', 
-            'InterfaceError', 'DatabaseError', 
-            'DataError', 'OperationalError', 'IntegrityError', 'InternalError',
-            'ProgrammingError', 'NotSupportedError',
-            # Type support:
-            'Binary', 'Date', 'Time', 'Timestamp', 
-            'DateFromTicks', 'TimestampFromTicks', 'TimeFromTicks',
-            'STRING', 'BINARY', 'NUMBER', 'DATETIME', 'ROWID',
+            '__version__', 
             # Extensions - setErrorVerbosity
             'ERRORS_TERSE', 'ERRORS_DEFAULT', 'ERRORS_VERBOSE',
             # Extensions - transactionStatus
@@ -50,21 +56,7 @@ class BasicTests(unittest.TestCase):
             "DIAG_SOURCE_LINE",
         )
         for attr in mandatory_attrs:
-            self.failUnless(hasattr(ocpgdb, attr), 
-                'Module does not export mandatory attribute %r' % attr)
-        self.failUnless(issubclass(ocpgdb.Warning, Exception))
-        self.failUnless(issubclass(ocpgdb.Error, Exception))
-        self.failUnless(issubclass(ocpgdb.InterfaceError, ocpgdb.Error))
-        self.failUnless(issubclass(ocpgdb.DatabaseError, ocpgdb.Error))
-        self.failUnless(issubclass(ocpgdb.DataError, ocpgdb.DatabaseError))
-        self.failUnless(issubclass(ocpgdb.OperationalError, ocpgdb.DatabaseError))
-        self.failUnless(issubclass(ocpgdb.IntegrityError, ocpgdb.DatabaseError))
-        self.failUnless(issubclass(ocpgdb.InternalError, ocpgdb.DatabaseError))
-        self.failUnless(issubclass(ocpgdb.ProgrammingError, ocpgdb.DatabaseError))
-        self.failUnless(issubclass(ocpgdb.NotSupportedError, ocpgdb.DatabaseError))
-        self.assertEqual(ocpgdb.apilevel, '2.0')
-        self.assertEqual(ocpgdb.threadsafety, 1)
-        self.assertEqual(ocpgdb.paramstyle, 'pyformat')
+            self.assertHasAttr(ocpgdb, attr) 
 
     def test_connect(self):
         c = ocpgdb.connect(**scratch_db)
@@ -147,7 +139,7 @@ class BasicSuite(unittest.TestSuite):
         unittest.TestSuite.__init__(self, map(BasicTests, self.tests))
 
 
-class ConversionTestCase(unittest.TestCase):
+class ConversionTestCase(TestCase):
     connect_args = scratch_db
     equal = operator.eq
     pgtype = None
@@ -518,11 +510,264 @@ class ConversionSuite(unittest.TestSuite):
                 self.addTest(test())
 
 
+class DBAPI2Test(TestCase):
+
+    pass
+
+
+class DBAPI2Module(DBAPI2Test):
+
+    def runTest(self):
+        self.assertEqual(ocpgdb.apilevel, '2.0')
+        self.assertEqual(ocpgdb.threadsafety, 1)
+        self.assertEqual(ocpgdb.paramstyle, 'pyformat')
+
+
+class DBAPI2Exceptions(DBAPI2Test):
+
+    def runTest(self):
+        self.assertSubClass(ocpgdb.Warning, Exception)
+        self.assertSubClass(ocpgdb.Error, Exception)
+        self.assertSubClass(ocpgdb.InterfaceError, ocpgdb.Error)
+        self.assertSubClass(ocpgdb.DatabaseError, ocpgdb.Error)
+        self.assertSubClass(ocpgdb.DataError, ocpgdb.DatabaseError)
+        self.assertSubClass(ocpgdb.OperationalError, ocpgdb.DatabaseError)
+        self.assertSubClass(ocpgdb.IntegrityError, ocpgdb.DatabaseError)
+        self.assertSubClass(ocpgdb.InternalError, ocpgdb.DatabaseError)
+        self.assertSubClass(ocpgdb.ProgrammingError, ocpgdb.DatabaseError)
+        self.assertSubClass(ocpgdb.NotSupportedError, ocpgdb.DatabaseError)
+
+
+class DBAPI2Connect(DBAPI2Test):
+
+    def runTest(self):
+        db = ocpgdb.connect(**scratch_db)
+        self.assertHasAttr(db, 'close')
+        self.assertHasAttr(db, 'commit')
+        self.assertHasAttr(db, 'rollback')
+        self.assertHasAttr(db, 'cursor')
+        # After a close, all methods should raise an Error subclass
+        db.close()
+        self.assertRaises(ocpgdb.Error, db.close)
+        self.assertRaises(ocpgdb.Error, db.rollback)
+        self.assertRaises(ocpgdb.Error, db.commit)
+        self.assertRaises(ocpgdb.Error, db.cursor)
+
+
+class DBAPI2Cursor(DBAPI2Test):
+
+    def runTest(self):
+        db = ocpgdb.connect(**scratch_db)
+        curs = db.cursor()
+        # Make sure all the bits are there
+        self.assertHasAttr(curs, 'description')
+        self.assertHasAttr(curs, 'rowcount')
+        #self.assertHasAttr(curs, 'callproc') # Optional
+        self.assertHasAttr(curs, 'close')
+        self.assertHasAttr(curs, 'execute')
+        self.assertHasAttr(curs, 'executemany')
+        self.assertHasAttr(curs, 'fetchone')
+        self.assertHasAttr(curs, 'fetchmany')
+        self.assertHasAttr(curs, 'fetchall')
+        #self.assertHasAttr(curs, 'nextset') # Optional
+        self.assertHasAttr(curs, 'arraysize')
+        self.assertHasAttr(curs, 'setinputsizes') # Stub
+        self.assertHasAttr(curs, 'setoutputsize') # Stub
+        # Now test functionality
+        self.assertRaises(ocpgdb.Error, curs.fetchone)
+        self.assertEqual(curs.description, None)
+        self.assertEqual(curs.rowcount, -1)
+        # description
+        curs.execute('select null')
+        self.assertEqual(curs.description, 
+            [('?column?', ocpgdb.pgoid.unknown, None, None, None, None, None)])
+        self.assertEqual(curs.rowcount, -1)
+        # execute
+        curs.execute('select null')
+        self.assertEqual(curs.fetchall(), [(None,)])
+        curs.execute('select null', ())
+        self.assertEqual(curs.fetchall(), [(None,)])
+        curs.execute('select null', [])
+        self.assertEqual(curs.fetchall(), [(None,)])
+        curs.execute('select null', {})
+        self.assertEqual(curs.fetchall(), [(None,)])
+        curs.execute('select null, 1')
+        self.assertEqual(curs.fetchall(), [(None, 1)])
+        curs.execute('select %s::int, %s::int', (None, 1))
+        self.assertEqual(curs.fetchall(), [(None, 1)])
+        curs.execute('select %(a)s::int, %(b)s::int', dict(a=None, b=1))
+        self.assertEqual(curs.fetchall(), [(None, 1)])
+        self.assertRaises(ocpgdb.Error, curs.execute, 
+                          'select %s::int, %s::int')
+        db.rollback()
+        self.assertRaises(ocpgdb.Error, curs.execute, 
+                          'select %s::int, %s::int', None)
+        db.rollback()
+        self.assertRaises(TypeError, curs.execute, 
+                          'select %s::int, %s::int', None, 1)
+        db.rollback()
+        self.assertRaises(ocpgdb.Error, curs.execute, 
+                          'select %s::int, %s::int', (None, None, None))
+        db.rollback()
+        self.assertRaises(ocpgdb.Error, curs.execute, 
+                          'select %s::int, %s::int', dict(a=None, b=1))
+        db.rollback()
+        self.assertRaises(ocpgdb.Error, curs.execute, 
+                          'select %(a)s::int, %(b)s::int', (None, 1))
+        db.rollback()
+        curs.execute('create table x ( y text )')
+        self.assertEqual(curs.rowcount, None)
+        self.assertRaises(ocpgdb.Error, curs.fetchall)
+        db.rollback()
+        # executemany
+        pass
+        # fetchone
+        curs.execute('select null')
+        self.assertEqual(curs.fetchone(), (None,))
+        self.assertEqual(curs.fetchone(), None)
+        # fetchmany
+        curs.execute('select null')
+        self.assertEqual(curs.fetchmany(), [(None,)])
+        self.assertEqual(curs.fetchmany(), [])
+        curs.execute('select null')
+        self.assertEqual(curs.fetchmany(2), [(None,)])
+        self.assertEqual(curs.fetchmany(2), [])
+        # fetchall
+        curs.execute('select null')
+        self.assertEqual(curs.fetchall(), [(None,)])
+        self.assertEqual(curs.fetchall(), [])
+        # multiple rows
+        curs.execute('create table x ( y text )')
+        curs.execute('insert into x values (%s)', 'a')
+        curs.execute('insert into x values (%s)', 'b')
+        curs.execute('insert into x values (%s)', 'c')
+        curs.execute('select * from x')
+        self.assertEqual(curs.fetchall(), [('a',), ('b',), ('c',)])
+        curs.execute('select * from x')
+        self.assertEqual(curs.fetchmany(), [('a',)])
+        self.assertEqual(curs.fetchmany(), [('b',)])
+        self.assertEqual(curs.fetchmany(), [('c',)])
+        self.assertEqual(curs.fetchmany(), [])
+        curs.execute('select * from x')
+        self.assertEqual(curs.fetchmany(2), [('a',), ('b',)])
+        self.assertEqual(curs.fetchmany(2), [('c',)])
+        self.assertEqual(curs.fetchmany(2), [])
+        self.assertEqual(curs.arraysize, 1)
+        curs.arraysize = 2
+        self.assertEqual(curs.arraysize, 2)
+        curs.execute('select * from x')
+        self.assertEqual(curs.fetchmany(), [('a',), ('b',)])
+        self.assertEqual(curs.fetchmany(), [('c',)])
+        self.assertEqual(curs.fetchmany(), [])
+        db.rollback()
+        curs = db.cursor()
+        # multiple rows and cols
+        curs.execute('create table x ( y text, z int )')
+        curs.executemany('insert into x values (%s, %s)', 
+                    [('a', 1), ('b', 1), ('c', 1)])
+        curs.execute('select * from x')
+        self.assertEqual(curs.fetchall(), 
+                    [('a', 1), ('b', 1), ('c', 1)])
+        db.rollback()
+        curs = db.cursor()
+        curs.execute('create table x ( y text, z int )')
+        curs.executemany('insert into x values (%(a)s, %(b)s)', 
+                    [dict(a='a', b=1), dict(a='b', b=1), dict(a='c', b=1)])
+        curs.execute('select * from x')
+        self.assertEqual(curs.fetchall(), 
+                    [('a', 1), ('b', 1), ('c', 1)])
+        # close
+        curs.close()
+        self.assertRaises(ocpgdb.Error, curs.close)
+        self.assertRaises(ocpgdb.Error, curs.execute, 'select null')
+        self.assertRaises(ocpgdb.Error, curs.fetchone)
+        self.assertRaises(ocpgdb.Error, curs.fetchmany)
+        self.assertRaises(ocpgdb.Error, curs.fetchall)
+
+
+
+
+class DBAPI2Type(DBAPI2Test):
+
+    def assertExecute(self, expect, cmd, *args):
+        curs = self.db.cursor()
+        try:
+            curs.execute(cmd, args)
+            rows = curs.fetchall()
+        finally:
+            curs.close()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(len(rows[0]), 1)
+        self.assertEqual(expect, rows[0][0])
+
+    def assertRoundTrip(self, type_obj, data):
+        curs = self.db.cursor()
+        try:
+            curs.execute('select %s', [data])
+            rows = curs.fetchall()
+            self.assertEqual(len(curs.description), 1)
+            self.assertEqual(curs.description[0][1], type_obj)
+        finally:
+            curs.close()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(len(rows[0]), 1)
+        self.assertEqual(data, rows[0][0])
+
+    def runTest(self):
+        self.assertHasAttr(ocpgdb, 'Binary')
+        self.assertHasAttr(ocpgdb, 'Date')
+        self.assertHasAttr(ocpgdb, 'Time')
+        self.assertHasAttr(ocpgdb, 'Timestamp')
+        self.assertHasAttr(ocpgdb, 'DateFromTicks')
+        self.assertHasAttr(ocpgdb, 'TimestampFromTicks')
+        self.assertHasAttr(ocpgdb, 'TimeFromTicks')
+        self.assertHasAttr(ocpgdb, 'STRING')
+        self.assertHasAttr(ocpgdb, 'BINARY')
+        self.assertHasAttr(ocpgdb, 'NUMBER')
+        self.assertHasAttr(ocpgdb, 'DATETIME')
+        self.assertHasAttr(ocpgdb, 'ROWID')
+        self.db = ocpgdb.connect(**scratch_db)
+        self.assertExecute(None, 'select null')
+        self.assertRoundTrip(ocpgdb.DATETIME, ocpgdb.Date(2010,5,11))
+        self.assertRoundTrip(ocpgdb.DATETIME, ocpgdb.Time(13,14,15))
+        self.assertRoundTrip(ocpgdb.DATETIME, 
+                             ocpgdb.Timestamp(2010,5,11, 13,14,15))
+        self.assertRoundTrip(ocpgdb.DATETIME, 
+                             ocpgdb.DateFromTicks(1273547655))
+        self.assertRoundTrip(ocpgdb.DATETIME, 
+                             ocpgdb.TimeFromTicks(1273547655))
+        self.assertRoundTrip(ocpgdb.DATETIME, 
+                             ocpgdb.TimestampFromTicks(1273547655))
+        self.assertRoundTrip(ocpgdb.BINARY, ocpgdb.Binary('abc\0'))
+        self.assertRoundTrip(ocpgdb.STRING, 'abc')
+        self.assertRoundTrip(ocpgdb.NUMBER, 1)
+        self.assertRoundTrip(ocpgdb.NUMBER, 1.1)
+        # No ROWID tests at this time
+
+
+class DBAPI2Suite(unittest.TestSuite):
+
+    tests = [
+        DBAPI2Module,
+        DBAPI2Exceptions,
+        DBAPI2Connect,
+        DBAPI2Cursor,
+        DBAPI2Type,
+    ]
+
+    def __init__(self):
+        unittest.TestSuite.__init__(self)
+        for test in self.tests:
+            self.addTest(test())
+
+
 class OCPGDBSuite(unittest.TestSuite):
+
     def __init__(self):
         unittest.TestSuite.__init__(self)
         self.addTest(BasicSuite())
         self.addTest(ConversionSuite())
+        self.addTest(DBAPI2Suite())
 
 
 suite = OCPGDBSuite
