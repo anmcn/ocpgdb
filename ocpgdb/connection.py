@@ -159,6 +159,7 @@ class Connection(PgConnection):
                 require         require an SSL connection
             show_notices        write Postgres notice messages to stderr
             use_mx_datetime     accept and return mx.DateTime types
+            use_ipaddr          accept and return ipaddr instead of ipaddress
             autocommit          transaction autocommit mode
         """
         # Positional connection arguments are a horrible idea - only support
@@ -168,6 +169,7 @@ class Connection(PgConnection):
         self.show_notices = kwargs.pop('show_notices', False)
         self.autocommit = kwargs.pop('autocommit', False)
         use_mx_datetime = kwargs.pop('use_mx_datetime', False)
+        use_ipaddr = kwargs.pop('use_ipaddr', False)
         conninfo = ' '.join(['%s=%s' % i for i in kwargs.items()])
         PgConnection.__init__(self, conninfo)
         # This makes sure we can parse what comes out of the db..
@@ -178,6 +180,10 @@ class Connection(PgConnection):
             self.use_mx_datetime()
         else:
             self.use_py_datetime()
+        if use_ipaddr:
+            self.use_ipaddr()
+        else:
+            self.use_ipaddress()
         self._set_encoding(self.client_encoding)
 
     def set_from_db(self, pgtype, fn):
@@ -197,6 +203,14 @@ class Connection(PgConnection):
     def use_mx_datetime(self):
         fromdb._set_mx_datetime(self.set_from_db, self.integer_datetimes)
         todb._set_mx_datetime(self.set_to_db, self.integer_datetimes)
+
+    def use_ipaddress(self):
+        fromdb._set_ipaddress(self.set_from_db)
+        todb._set_ipaddress(self.set_to_db)
+
+    def use_ipaddr(self):
+        fromdb._set_ipaddr(self.set_from_db)
+        todb._set_ipaddr(self.set_to_db)
 
     def _result_row(self, row):
         return tuple([fromdb.value_from_db(self.from_db, cell) for cell in row])

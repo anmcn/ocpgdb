@@ -14,6 +14,8 @@ del sys.path[0]
 import ocpgdb
 print('WARNING: testing %s' % os.path.dirname(ocpgdb.__file__))
 
+scratch_db = dict(dbname='ocpgdb_test', port=5432)
+
 try:
     import decimal
     have_decimal = True
@@ -26,8 +28,19 @@ try:
 except ImportError:
     print('WARNING: mx.DateTime not available, tests skipped')
     have_mx = False
+try:
+    import ipaddress
+    have_ipaddress = True
+except ImportError:
+    try:
+        import ipaddr as ipaddress
+        have_ipaddress = True
+        scratch_db['use_ipaddr'] = True
+        print('WARNING: using ipaddr rather than ipaddress module')
+    except ImportError:
+        print('WARNING: neither ipaddress nor ipaddr modules are available, tests skipped')
+        have_ipaddress = False
 
-scratch_db = dict(dbname='ocpgdb_test', port=5432)
 
 
 class TestCase(unittest.TestCase):
@@ -416,6 +429,36 @@ class PyDateConversion(ConversionTestCase):
 #        pass
 
 
+class IpAddressConversion(ConversionTestCase):
+    pgtype = 'inet'
+
+    def runTest(self):
+        self.roundtrip(None)
+        self.both(ipaddress.IPv4Address('0.0.0.0'))
+        self.both(ipaddress.IPv4Address('255.255.255.255'))
+        self.both(ipaddress.IPv4Address('127.0.0.1'))
+        self.both(ipaddress.IPv6Address('::1'))
+        self.both(ipaddress.IPv6Address('2001:db8:85a3::8a2e:370:7334'))
+        self.both(ipaddress.IPv6Address('::ffff:192.0.2.128'))
+
+
+class IpNetworkConversion(ConversionTestCase):
+    pgtype = 'cidr'
+
+    def runTest(self):
+        self.roundtrip(None)
+        self.both(ipaddress.IPv4Network('0.0.0.0'))
+        self.both(ipaddress.IPv4Network('255.255.255.255'))
+        self.both(ipaddress.IPv4Network('127.0.0.1'))
+        self.both(ipaddress.IPv6Network('::1'))
+        self.both(ipaddress.IPv6Network('2001:db8:85a3::8a2e:370:7334'))
+        self.both(ipaddress.IPv6Network('::ffff:192.0.2.128'))
+        self.both(ipaddress.IPv4Network('10.0.0.0/8'))
+        self.both(ipaddress.IPv4Network('0.0.0.0/0'))
+        self.both(ipaddress.IPv4Network('127.0.0.1/32'))
+        self.both(ipaddress.IPv6Network('::1/128'))
+
+
 class MxTestConversion(ConversionTestCase):
     connect_args = dict(use_mx_datetime=True, **scratch_db)
 
@@ -505,12 +548,19 @@ class ConversionSuite(unittest.TestSuite):
         MxDateConversion,
         MxIntervalConversion,
     ]
+    ipaddress_tests = [
+        IpAddressConversion,
+        IpNetworkConversion,
+    ]
     def __init__(self):
         unittest.TestSuite.__init__(self)
         for test in self.tests:
             self.addTest(test())
         if have_decimal:
             self.addTest(NumericConversion())
+        if have_ipaddress:
+            for test in self.ipaddress_tests:
+                self.addTest(test())
         if have_mx:
             for test in self.mx_tests:
                 self.addTest(test())

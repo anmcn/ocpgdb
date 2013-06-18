@@ -47,6 +47,7 @@ set_from_db(pgoid.int4, pgtype.unpack_int4)
 set_from_db(pgoid.int8, pgtype.unpack_int8)
 set_from_db(pgoid.oid, pgtype.unpack_oid)
 set_from_db(pgoid.bytea, bytea)
+
 try:
     from . import cvtdecimal
 except ImportError:
@@ -74,3 +75,14 @@ def _set_py_datetime(setfn, integer_datetimes):
 def _set_mx_datetime(setfn, integer_datetimes):
     from . import cvtmxtime
     cvtmxtime.register_from(setfn, integer_datetimes)
+
+def _set_ipaddress(setfn):
+    from . import cvtipaddress
+    setfn(pgoid.inet, cvtipaddress.unpack_inet)
+    setfn(pgoid.cidr, cvtipaddress.unpack_cidr)
+
+def _set_ipaddr(setfn):
+    from . import cvtipaddr
+    setfn(pgoid.inet, cvtipaddr.unpack_inet)
+    setfn(pgoid.cidr, cvtipaddr.unpack_cidr)
+

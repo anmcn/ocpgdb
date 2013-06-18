@@ -93,3 +93,19 @@ def _set_py_datetime(setfn, integer_datetimes):
 def _set_mx_datetime(setfn, integer_datetimes):
     from . import cvtmxtime
     cvtmxtime.register_to(setfn, integer_datetimes)
+
+def _set_ipaddress(setfn):
+    import ipaddress
+    from . import cvtipaddress
+    setfn(ipaddress.IPv4Address, cvtipaddress.pack_ipv4addr)
+    setfn(ipaddress.IPv6Address, cvtipaddress.pack_ipv6addr)
+    setfn(ipaddress.IPv4Network, cvtipaddress.pack_ipv4net)
+    setfn(ipaddress.IPv6Network, cvtipaddress.pack_ipv6net)
+
+def _set_ipaddr(setfn):
+    import ipaddr
+    from . import cvtipaddr
+    setfn(ipaddr.IPv4Address, cvtipaddr.pack_ipv4addr)
+    setfn(ipaddr.IPv6Address, cvtipaddr.pack_ipv6addr)
+    setfn(ipaddr.IPv4Network, cvtipaddr.pack_ipv4net)
+    setfn(ipaddr.IPv6Network, cvtipaddr.pack_ipv6net)
