@@ -194,7 +194,7 @@ connection_close(PyPgConnection *self, PyObject *unused)
 	return Py_None;
 }
 
-/* Extract 3-tuple parameters */
+/* Extract 2-tuple (oid, data) parameters */
 static int
 _param_tuple(PyObject *param, Oid *oid, char **str, int *len)
 {
@@ -215,12 +215,12 @@ _param_tuple(PyObject *param, Oid *oid, char **str, int *len)
 	}
 	*oid = PyInt_AsLong(o);
 	o = PyTuple_GET_ITEM(param, 1);
-	if (!PyString_Check(o)) {
+	if (!PyBytes_Check(o)) {
 		PyErr_SetString(PyExc_TypeError, 
-			"parameter 2-tuple element 1 must be str type");
+			"parameter 2-tuple element 1 must be bytes type");
 		return -1;
 	}
-	if (PyString_AsStringAndSize(o, str, &l) < 0)
+	if (PyBytes_AsStringAndSize(o, str, &l) < 0)
 		return -1;
 	*len = l;
 	return 0;
@@ -288,7 +288,7 @@ connection_execute(PyPgConnection *self, PyObject *args)
 			paramFormats[n] = 1;
 		} else {
 			char *str;
-			if ((str = PyString_AsString(param)) == NULL) {
+			if ((str = PyBytes_AsString(param)) == NULL) {
 				Py_DECREF(param);
 				goto error;
 			}
@@ -467,7 +467,7 @@ static PyMethodDef PyPgConnection_methods[] = {
 	{"close", (PyCFunction)connection_close, METH_NOARGS,
 		PyDoc_STR("Close the connection")},
 	{"execute", (PyCFunction)connection_execute, METH_VARARGS,
-		PyDoc_STR("Execute an SQL command")},
+		PyDoc_STR("PgConnection.execute(cmd, args) -- Execute an SQL command")},
 	{"fileno", (PyCFunction)connection_fileno, METH_NOARGS,
 		PyDoc_STR("Returns socket file descriptor")},
 	{"setErrorVerbosity", (PyCFunction)connection_error_verb, METH_VARARGS,
@@ -478,8 +478,8 @@ static PyMethodDef PyPgConnection_methods[] = {
 
 #define MO(m) offsetof(PyPgConnection, m)
 static PyMemberDef PyPgConnection_members[] = {
-	{"conninfo",	T_OBJECT,	MO(conninfo),	RO },
-	{"notices",	T_OBJECT,	MO(notices),	RO },
+	{"conninfo",	T_OBJECT,	MO(conninfo),	READONLY },
+	{"notices",	T_OBJECT,	MO(notices),	READONLY },
 	{NULL}
 };
 #undef MO
@@ -510,8 +510,7 @@ static PyGetSetDef PyPgConnection_getset[] = {
 static char PyPgConnection_doc[] = "XXX PgConnection objects";
 
 static PyTypeObject PyPgConnection_Type = {
-	PyObject_HEAD_INIT(NULL)
-	0,					/* ob_size */
+	PyVarObject_HEAD_INIT(NULL, 0)
 	MODULE_NAME ".PgConnection",		/* tp_name */
 	sizeof(PyPgConnection),			/* tp_basicsize */
 	0,					/* tp_itemsize */

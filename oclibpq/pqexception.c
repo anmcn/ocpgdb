@@ -25,8 +25,8 @@ PyObject *PqErr_NotSupportedError;	/*	 +--NotSupportedError	*/
 
 void pg_exception_init(PyObject *module)
 {
-	NEW_EXC(PqErr_Warning, "Warning", PyExc_StandardError);
-	NEW_EXC(PqErr_Error, "Error", PyExc_StandardError);
+	NEW_EXC(PqErr_Warning, "Warning", PyExc_Exception);
+	NEW_EXC(PqErr_Error, "Error", PyExc_Exception);
 	NEW_EXC(PqErr_InterfaceError, "InterfaceError", PqErr_Error);
 	NEW_EXC(PqErr_DatabaseError, "DatabaseError", PqErr_Error);
 	NEW_EXC(PqErr_DataError, "DataError", PqErr_DatabaseError);

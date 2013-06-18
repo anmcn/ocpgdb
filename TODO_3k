@@ -1,0 +1,76 @@
+Document API changes:
+
+    Dropped execute() method *a and **kw behaviour.
+        No more:
+            curs.execute('select %s, %s', 1, 2)
+        Must use:
+            curs.execute('select %s, %s', (1, 2))
+        Can we improve error handling?
+
+    Warning and Error exceptions inherit from Exception now instead
+    of StandardError
+
+    On Py3, PostgreSQL client_encoding is used when decoding and encoding
+    strings passed to the server. For Py2, strings are still just str
+    strings (this may need to be revisited, or maybe it should be a switch).
+
+Document code changes:
+
+    setup.py distutils tweaks to run 2to3 automatically.
+
+    PyString, PyInt, PyLong, PyBytes compatibility macros in oclibpq/oclibpq.h
+        Use PyBytes where py3 wants bytes, py2 wants str
+        Use PyString where py3 wants unicode string, py2 wants str
+
+    Module initialisation and registration changes
+
+    PyVarObject_HEAD_INIT instead of PyObject_HEAD_INIT
+
+    Repr must return unicode now - py2 PyString_FromFormat has no %S, so we
+    must assemable the string ourselfs.
+
+    PyMemberDef "RO" flag gone, must use READONLY instead.
+
+    PyPgConst no longer subclasses PyInt, but instead implements a
+    very limited subset of the number protocol - just nb_int method, in
+    fact. I couldn't get common subclassing-based to work for both py 2
+    (int) and 3 (long).
+
+    Made ocpgdb imports absolute.
+
+Autoconvert tests.py?
+    Import of ocpgdb finds unconverted py2 code. del sys.path[0]?
+    ByteaConversion test uses needs byte literals
+
+Handle unicode - options:
+  1. set client_encoding to utf8
+    What if database data cannot be represented in utf8 (eg arbitrary 8 bit
+    data)?
+  2. accept server client_encoding 
+    What if python doesn't have a matching encoding?
+  Chosen option 2 for now.
+  What the user changes the client_encoding?
+  What if a py2 user wants this new behaviour? Connection argument to enable?
+
+Fix Instance to_db py2 regression:
+    ERROR: runTest (__main__.MxIntervalConversion)
+    ----------------------------------------------------------------------
+    Traceback (most recent call last):
+    File "tests.py", line 469, in runTest
+        self.roundtrip(rd())
+    File "tests.py", line 183, in roundtrip
+        got = self._todb(value)
+    File "tests.py", line 175, in _todb
+        return self.exone(self.db, "select %s::" + self.pgtype, pyval)
+    File "tests.py", line 158, in exone
+        rows = list(db.execute(cmd, args))
+    File "/data/src/oc/ocpgdb-3k/ocpgdb/connection.py", line 274, in execute
+        return self._result_rows(self._execute(cmd, args))
+    File "/data/src/oc/ocpgdb-3k/ocpgdb/connection.py", line 216, in _execute
+        args = self._args_to_db(args)
+    File "/data/src/oc/ocpgdb-3k/ocpgdb/connection.py", line 210, in _args_to_db
+        return [todb.value_to_db(self.to_db, a) for a in args]
+    File "/data/src/oc/ocpgdb-3k/ocpgdb/todb.py", line 60, in value_to_db
+        raise DataError('no to_db function for %r' % vtype)
+    DataError: no to_db function for <type 'instance'>
+

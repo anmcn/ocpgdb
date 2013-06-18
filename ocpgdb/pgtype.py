@@ -4,7 +4,7 @@ import sys
 import struct
 # Module libs
 from oclibpq import bytea
-import pgoid
+from ocpgdb import pgoid
 
 """
 PG binary wire formats
@@ -78,9 +78,20 @@ else:
 unpack_str = str
 def pack_str(value):
     return pgoid.text, value
+
 unpack_bytea = bytea
 def pack_bytea(value):
     return pgoid.bytea, value
+
+def mk_pack_unicode(encoding):
+    def pack_unicode(value):
+        return pgoid.text, value.encode(encoding)
+    return pack_unicode
+
+def mk_unpack_unicode(encoding):
+    def unpack_unicode(value):
+        return value.decode(encoding)
+    return unpack_unicode
 
 # Depending on build time options, PG may send dates and times as floats or
 # ints. The connection parameter integer_datetimes allows us to tell. When

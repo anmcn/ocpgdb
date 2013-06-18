@@ -135,21 +135,21 @@ PyPgResult_iternext(PyPgResult *self)
 
 	for (i = 0; i < ncolumns; ++i) {
 		master_cell = (PyPgCell *)PyTuple_GET_ITEM(columns, i);
-		format = PyInt_AS_LONG(master_cell->format);
+		format = PyInt_AsLong(master_cell->format);
 		if (PQgetisnull(result, row_number, i)) {
 			Py_INCREF(Py_None);
 			cell_value = Py_None;
 		} else if (format == 0) {
 			value = PQgetvalue(result, row_number, i);
 			value = (char *)PQunescapeBytea((unsigned char *)value, &len);
-			cell_value = PyString_FromStringAndSize(value, len);
+			cell_value = PyBytes_FromStringAndSize(value, len);
 			PQfreemem(value);
 			if (cell_value == NULL)
 				goto failed;
 		} else if (format == 1) {
 			value = PQgetvalue(result, row_number, i);
 			len = PQgetlength(result, row_number, i);
-			cell_value = PyString_FromStringAndSize(value, len);
+			cell_value = PyBytes_FromStringAndSize(value, len);
 			if (cell_value == NULL)
 				goto failed;
 		} else {
@@ -197,7 +197,7 @@ static PyMethodDef PyPgResult_methods[] = {
 
 #define MO(m) offsetof(PyPgResult, m)
 static PyMemberDef PyPgResult_members[] = {
-	{"status",	T_OBJECT,	MO(status),	RO},
+	{"status",	T_OBJECT,	MO(status),	READONLY},
 	{NULL}
 };
 #undef MO
@@ -217,8 +217,7 @@ static PyGetSetDef PyPgResult_getset[] = {
 static char PyPgResult_doc[] = "XXX PgResult objects";
 
 static PyTypeObject PyPgResult_Type = {
-	PyObject_HEAD_INIT(NULL)
-	0,					/* ob_size */
+	PyVarObject_HEAD_INIT(NULL, 0)
 	MODULE_NAME ".PgResult",		/* tp_name */
 	sizeof(PyPgResult),			/* tp_basicsize */
 	0,					/* tp_itemsize */

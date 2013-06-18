@@ -4,8 +4,7 @@
 static char PyPgBytea_doc[] = "XXX bytea objects";
 
 static PyTypeObject PyPgBytea_Type = {
-	PyObject_HEAD_INIT(NULL)
-	0,					/* ob_size */
+	PyVarObject_HEAD_INIT(NULL, 0)
 	MODULE_NAME ".bytea",			/* tp_name */
 	sizeof(PyPgBytea),			/* tp_basicsize */
 	0,					/* tp_itemsize */
@@ -55,7 +54,7 @@ PyPgBytea_Check(PyObject *op)
 void
 pg_bytea_init(PyObject *module)
 {
-	PyPgBytea_Type.tp_base = &PyString_Type;
+	PyPgBytea_Type.tp_base = &PyBytes_Type;
 	if (PyType_Ready(&PyPgBytea_Type) < 0)
 		return;
 	Py_INCREF(&PyPgBytea_Type);

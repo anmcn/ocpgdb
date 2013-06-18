@@ -1,9 +1,11 @@
 import sys
 import types
 # Module specific
-import pgoid, pgtype
+from ocpgdb import pgoid, pgtype
 from oclibpq import bytea, DataError
 
+# Note that this is the common to_db map - each connection object also has it's
+# own to_db map which overrides this:
 to_db = {}
 
 def set_to_db(pytype, fn):
@@ -18,8 +20,6 @@ def list_to_db(to_db, array):
     if not len(array):
         raise DataError('Cannot coerce 0-length tuples/lists to PG array')
     data_type = type(array[0])
-    if data_type is types.InstanceType:
-        data_type = array[0].__class__
     try:
         cvt = to_db[data_type]
     except KeyError:
@@ -28,8 +28,6 @@ def list_to_db(to_db, array):
     array_data = []
     for v in array:
         t = type(v)
-        if t is types.InstanceType:
-            t = v.__class__
         if t is not data_type:
             raise DataError('Array contains non-homogenous types '
                             '(%r, %r)' % (data_type, t))
@@ -51,14 +49,15 @@ def value_to_db(to_db, value):
     if value is None:
         return None
     vtype = type(value)
-    if vtype is types.InstanceType:
-        vtype = value.__class__
-    elif vtype is list or vtype is tuple:
+    if vtype is list or vtype is tuple:
         return list_to_db(to_db, value)
     try:
         cvt = to_db[vtype]
     except KeyError:
-        raise DataError('no to_db function for %r' % vtype)
+        try:
+            cvt = to_db[value.__class__]
+        except KeyError:
+            raise DataError('no to_db function for %r' % vtype)
     try:
         return cvt(value)
     except Exception, e:
@@ -70,20 +69,27 @@ set_to_db(bool, pgtype.pack_bool)
 set_to_db(float, pgtype.pack_float8)
 set_to_db(int, pgtype.pack_int)
 set_to_db(long, pgtype.pack_int8)
-set_to_db(str, pgtype.pack_str)
 set_to_db(bytea, pgtype.pack_bytea)
 try:
-    import decimal, cvtdecimal
+    import decimal
+    from ocpgdb import cvtdecimal
 except ImportError:
     pass
 else:
     set_to_db(decimal.Decimal, cvtdecimal.pack_numeric)
 
+def _set_encoding(setfn, encoding):
+    if sys.version_info < (3,0):
+        setfn(str, pgtype.pack_str)
+        setfn(unicode, pgtype.mk_pack_unicode(encoding))
+    else:
+        setfn(bytes, pgtype.pack_str)
+        setfn(str, pgtype.mk_pack_unicode(encoding))
 
 def _set_py_datetime(setfn, integer_datetimes):
-    import cvtpytime
+    from ocpgdb import cvtpytime
     cvtpytime.register_to(setfn, integer_datetimes)
 
 def _set_mx_datetime(setfn, integer_datetimes):
-    import cvtmxtime
+    from ocpgdb import cvtmxtime
     cvtmxtime.register_to(setfn, integer_datetimes)

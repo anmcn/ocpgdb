@@ -2,7 +2,7 @@
 from __future__ import division
 import datetime
 # Module specific
-import pgoid, pgtype
+from ocpgdb import pgoid, pgtype
 
 def register_from(setfn, integer_datetimes):
     if integer_datetimes:

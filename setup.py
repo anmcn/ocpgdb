@@ -3,9 +3,16 @@
 # Usage: python setup.py install
 #
 
+import sys, os
+import re
 from distutils.core import setup, Extension
 from distutils import sysconfig
-import sys, os
+
+COMMANDS = {}
+if sys.version_info[0] == 3:
+    from distutils.command.build_py import build_py_2to3
+    COMMANDS['build_py'] = build_py_2to3
+
 
 def collect(cmd, help):
     config = {}
@@ -18,7 +25,7 @@ def collect(cmd, help):
         if f.close():
             sys.exit('%s failed - %s' % (cmd, help))
     return config
-        
+
 
 # Collect PG compile options
 pg_config = collect('pg_config', '''\
@@ -26,14 +33,15 @@ you may need to install the postgres client library
 package (libpq-dev or similar)''')
 
 NAME = 'ocpgdb'
-VERSION = '1.0.3'
 DESCRIPTION = 'A simple and safe PostgreSQL DB-API 2 adapter'
 AUTHOR = 'Andrew McNamara', 'andrewm@object-craft.com.au'
-HOMEPAGE = 'http://www.object-craft.com.au/projects/ocpgdb/'
-DOWNLOAD = 'http://www.object-craft.com.au/projects/ocpgdb/download'
+HOMEPAGE = 'http://code.google.com/p/ocpgdb/'
+DOWNLOAD = 'http://code.google.com/p/ocpgdb/downloads/list'
 PG_INCL_DIR = pg_config['INCLUDEDIR']
 PG_LIB_DIR = pg_config['LIBDIR']
-
+# Extract __version__ from module
+buf = open('ocpgdb/__init__.py').read()
+VERSION = re.search("__version__ = '(.*)'", buf).group(1)
 
 sources = [
     'oclibpq/oclibpq.c',
@@ -87,4 +95,5 @@ setup(
     platforms='Python 2.3 and later, PostgreSQL 8.0 and later',
     url=HOMEPAGE,
     version=VERSION,
+    cmdclass=COMMANDS,
 )
