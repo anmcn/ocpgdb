@@ -1,7 +1,7 @@
 import sys
 import types
 # Module specific
-from ocpgdb import pgoid, pgtype
+from . import pgoid, pgtype
 from oclibpq import bytea, DataError
 
 # Note that this is the common to_db map - each connection object also has it's
@@ -72,7 +72,7 @@ set_to_db(long, pgtype.pack_int8)
 set_to_db(bytea, pgtype.pack_bytea)
 try:
     import decimal
-    from ocpgdb import cvtdecimal
+    from . import cvtdecimal
 except ImportError:
     pass
 else:
@@ -87,9 +87,9 @@ def _set_encoding(setfn, encoding):
         setfn(str, pgtype.mk_pack_unicode(encoding))
 
 def _set_py_datetime(setfn, integer_datetimes):
-    from ocpgdb import cvtpytime
+    from . import cvtpytime
     cvtpytime.register_to(setfn, integer_datetimes)
 
 def _set_mx_datetime(setfn, integer_datetimes):
-    from ocpgdb import cvtmxtime
+    from . import cvtmxtime
     cvtmxtime.register_to(setfn, integer_datetimes)

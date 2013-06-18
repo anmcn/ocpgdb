@@ -4,7 +4,7 @@ import math
 # 3rd party
 from mx import DateTime
 # Module specific
-from ocpgdb import pgoid, pgtype
+from . import pgoid, pgtype
 
 def register_from(setfn, integer_datetimes):
     if integer_datetimes:

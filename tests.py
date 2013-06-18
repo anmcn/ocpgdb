@@ -27,10 +27,10 @@ scratch_db = dict(dbname='ocpgdb_test', port=5432)
 class TestCase(unittest.TestCase):
 
     def assertHasAttr(self, o, attr):
-        self.failUnless(hasattr(o, attr), 'no attribute %r' % attr)
+        self.assertTrue(hasattr(o, attr), 'no attribute %r' % attr)
 
     def assertSubClass(self, sb, c):
-        self.failUnless(issubclass(sb, c), 
+        self.assertTrue(issubclass(sb, c), 
                         '%r is not a subclass of %r' % (sb, c))
 
 
@@ -60,27 +60,27 @@ class BasicTests(TestCase):
 
     def test_connect(self):
         c = ocpgdb.connect(**scratch_db)
-        self.failUnless(c.fileno() >= 0)
-        self.failUnless(isinstance(c.conninfo, str))
+        self.assertTrue(c.fileno() >= 0)
+        self.assertTrue(isinstance(c.conninfo, str))
         self.assertEqual(c.notices, [])
-        self.failUnless(isinstance(c.host, str))
-        self.failUnless(isinstance(c.port, int))
-        self.failUnless(isinstance(c.db, str))
-        self.failUnless(isinstance(c.user, str))
-        self.failUnless(isinstance(c.password, str))
-        self.failUnless(isinstance(c.options, str))
-        self.failUnless(isinstance(c.protocolVersion, int))
-        self.failUnless(c.protocolVersion >= 2)
-        self.failUnless(isinstance(c.serverVersion, int))
-        self.failUnless(c.serverVersion >= 70000)
-        self.failUnless(not c.closed)
+        self.assertTrue(isinstance(c.host, str))
+        self.assertTrue(isinstance(c.port, int))
+        self.assertTrue(isinstance(c.db, str))
+        self.assertTrue(isinstance(c.user, str))
+        self.assertTrue(isinstance(c.password, str))
+        self.assertTrue(isinstance(c.options, str))
+        self.assertTrue(isinstance(c.protocolVersion, int))
+        self.assertTrue(c.protocolVersion >= 2)
+        self.assertTrue(isinstance(c.serverVersion, int))
+        self.assertTrue(c.serverVersion >= 70000)
+        self.assertTrue(not c.closed)
         self.assertEqual(c.transactionStatus, ocpgdb.TRANS_IDLE)
         old_verb = c.setErrorVerbosity(ocpgdb.ERRORS_VERBOSE)
         self.assertEqual(old_verb, ocpgdb.ERRORS_DEFAULT)
         old_verb = c.setErrorVerbosity(ocpgdb.ERRORS_DEFAULT)
         self.assertEqual(old_verb, ocpgdb.ERRORS_VERBOSE)
         c.close()
-        self.failUnless(c.closed)
+        self.assertTrue(c.closed)
         self.assertRaises(ocpgdb.ProgrammingError, getattr, c, 'host')
         self.assertRaises(ocpgdb.ProgrammingError, getattr, c, 'port')
         self.assertRaises(ocpgdb.ProgrammingError, getattr, c, 'db')
@@ -158,8 +158,8 @@ class ConversionTestCase(TestCase):
         """
         if pgstr is None:
             pgstr = str(pyval)
-        got = self.exone(self.db, "select %r::%s" % (pgstr, self.pgtype))
-        self.failUnless(self.equal(pyval, got),
+        got = self.exone(self.db, "select '%s'::%s" % (pgstr, self.pgtype))
+        self.assertTrue(self.equal(pyval, got),
                         "from pg val %s::%s, expected %r, got %r" %
                             (pgstr, self.pgtype, pyval, got))
 
@@ -173,7 +173,7 @@ class ConversionTestCase(TestCase):
         if expect is None:
             expect = value
         got = self._todb(value)
-        self.failUnless(self.equal(got, expect),
+        self.assertTrue(self.equal(got, expect),
                         "round trip, %s type, expected %r, got %r" % 
                             (self.pgtype, expect, got))
 
@@ -328,7 +328,7 @@ class TextConversion(ConversionTestCase):
     def runTest(self):
         self.roundtrip(None)
         self.both('')
-        self.both('\'\"\x01')
+        self.both('\'"\x01', '\'\'"\x01')
         self.both('A' * 65536)
 
 
@@ -338,7 +338,7 @@ class VarcharConversion(ConversionTestCase):
     def runTest(self):
         self.roundtrip(None)
         self.both('')
-        self.both('\'\"\x01')
+        self.both('\'\"\x01', '\'\'"\x01')
         self.both('A' * 65536)
 
 
@@ -348,7 +348,7 @@ class Varchar5Conversion(ConversionTestCase):
     def runTest(self):
         self.roundtrip(None)
         self.both('')
-        self.both('\'\"\x01')
+        self.both('\'\"\x01', '\'\'"\x01')
         self.roundtrip('A' * 65536, 'A' * 5)
 
 

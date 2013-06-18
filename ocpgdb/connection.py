@@ -2,11 +2,10 @@
 import sys
 import itertools
 import re
-import types
 # Module
 from oclibpq import *
-from ocpgdb import fromdb
-from ocpgdb import todb
+from . import fromdb
+from . import todb
 
 class Cursor:
     _re_DQL = re.compile(r'^\s*SELECT\s', re.IGNORECASE)

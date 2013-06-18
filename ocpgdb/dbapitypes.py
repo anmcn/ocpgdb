@@ -1,4 +1,4 @@
-from oclibpq import *
+from . import *
 
 __all__ = (
     'Binary', 'Date', 'Time', 'Timestamp', 
@@ -34,7 +34,7 @@ class DBAPITypeObject(object):
     def __eq__(self, other):
         return other in self.values
 
-from ocpgdb import pgoid
+from . import pgoid
 
 STRING = DBAPITypeObject('STRING',
     pgoid.bpchar, 

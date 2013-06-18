@@ -1,7 +1,7 @@
 from __future__ import division
 import sys
 # Module specific
-from ocpgdb import pgoid, pgtype
+from . import pgoid, pgtype
 from oclibpq import bytea, InterfaceError, InternalError
 
 # Note that this is the common from_db map - each connection object also has
@@ -48,7 +48,7 @@ set_from_db(pgoid.int8, pgtype.unpack_int8)
 set_from_db(pgoid.oid, pgtype.unpack_oid)
 set_from_db(pgoid.bytea, bytea)
 try:
-    from ocpgdb import cvtdecimal
+    from . import cvtdecimal
 except ImportError:
     pass
 else:
@@ -68,9 +68,9 @@ def _set_encoding(setfn, encoding):
         setfn(pgoid.name, unpack_unicode)
 
 def _set_py_datetime(setfn, integer_datetimes):
-    from ocpgdb import cvtpytime
+    from . import cvtpytime
     cvtpytime.register_from(setfn, integer_datetimes)
 
 def _set_mx_datetime(setfn, integer_datetimes):
-    from ocpgdb import cvtmxtime
+    from . import cvtmxtime
     cvtmxtime.register_from(setfn, integer_datetimes)

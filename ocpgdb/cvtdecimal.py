@@ -4,7 +4,7 @@ from __future__ import division
 import struct
 import decimal
 # Module
-from ocpgdb import pgoid
+from . import pgoid
 
 NUMERIC_POS = 0x0000
 NUMERIC_NEG = 0x4000

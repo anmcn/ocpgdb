@@ -4,7 +4,7 @@ import sys
 import struct
 # Module libs
 from oclibpq import bytea
-from ocpgdb import pgoid
+from . import pgoid
 
 """
 PG binary wire formats
