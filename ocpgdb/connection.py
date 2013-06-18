@@ -183,7 +183,10 @@ class Connection(PgConnection):
         if use_ipaddr:
             self.use_ipaddr()
         else:
-            self.use_ipaddress()
+            try:
+                self.use_ipaddress()
+            except ImportError:
+                pass
         self._set_encoding(self.client_encoding)
 
     def set_from_db(self, pgtype, fn):
