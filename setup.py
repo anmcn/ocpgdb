@@ -35,8 +35,8 @@ package (libpq-dev or similar)''')
 NAME = 'ocpgdb'
 DESCRIPTION = 'A simple and safe PostgreSQL DB-API 2 adapter'
 AUTHOR = 'Andrew McNamara', 'andrewm@object-craft.com.au'
-HOMEPAGE = 'http://code.google.com/p/ocpgdb/'
-DOWNLOAD = 'http://code.google.com/p/ocpgdb/downloads/list'
+HOMEPAGE = 'https://github.com/anmcn/ocpgdb'
+DOWNLOAD = 'https://github.com/anmcn/ocpgdb/releases'
 PG_INCL_DIR = pg_config['INCLUDEDIR']
 PG_LIB_DIR = pg_config['LIBDIR']
 # Extract __version__ from module
