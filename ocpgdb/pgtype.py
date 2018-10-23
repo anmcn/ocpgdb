@@ -100,13 +100,19 @@ def mk_unpack_unicode(encoding):
 
 usec_mul = 1000000.0
 # uS into day
-unpack_int_time, pack_int_time = _mk_fns(pgoid.time, '!q')
+def unpack_int_time(buf):
+    return struct.unpack('!q', buf)[0]
+def pack_int_time(usecs):
+    return pgoid.time, struct.pack('!q', int(usecs))
 def unpack_flt_time(buf):
     return struct.unpack('!d', buf)[0] * usec_mul
 def pack_flt_time(usecs):
     return pgoid.time, struct.pack('!d', usecs / usec_mul)
 # uS from 2000-01-01
-unpack_int_timestamp, pack_int_timestamp = _mk_fns(pgoid.timestamp, '!q')
+def unpack_int_timestamp(buf):
+    return struct.unpack('!q', buf)[0]
+def pack_int_timestamp(usecs):
+    return pgoid.timestamp, struct.pack('!q', int(usecs))
 def unpack_flt_timestamp(buf):
     return struct.unpack('!d', buf)[0] * usec_mul
 def pack_flt_timestamp(usecs):
@@ -115,7 +121,10 @@ def pack_flt_timestamp(usecs):
 unpack_int_date, pack_int_date = _mk_fns(pgoid.date, '!l')
 unpack_flt_date, pack_flt_date = _mk_fns(pgoid.date, '!l')
 # uS, days, months
-unpack_int_interval, pack_int_interval = _make_tuple_fns(pgoid.interval, '!qll')
+def unpack_int_interval(buf):
+    return struct.unpack('!qll', buf)
+def pack_int_interval(usecs, days, months):
+    return pgoid.interval, struct.pack('!qll', int(usecs), int(days), int(months))
 def unpack_flt_interval(buf):
     seconds, days, months = struct.unpack('!dll', buf)
     return seconds * usec_mul, days, months
