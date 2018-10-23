@@ -428,12 +428,12 @@ class IpAddressConversion(ConversionTestCase):
 
     def runTest(self):
         self.roundtrip(None)
-        self.both(ipaddress.IPv4Address('0.0.0.0'))
-        self.both(ipaddress.IPv4Address('255.255.255.255'))
-        self.both(ipaddress.IPv4Address('127.0.0.1'))
-        self.both(ipaddress.IPv6Address('::1'))
-        self.both(ipaddress.IPv6Address('2001:db8:85a3::8a2e:370:7334'))
-        self.both(ipaddress.IPv6Address('::ffff:192.0.2.128'))
+        self.both(ipaddress.IPv4Address(u'0.0.0.0'))
+        self.both(ipaddress.IPv4Address(u'255.255.255.255'))
+        self.both(ipaddress.IPv4Address(u'127.0.0.1'))
+        self.both(ipaddress.IPv6Address(u'::1'))
+        self.both(ipaddress.IPv6Address(u'2001:db8:85a3::8a2e:370:7334'))
+        self.both(ipaddress.IPv6Address(u'::ffff:192.0.2.128'))
 
 
 class IpNetworkConversion(ConversionTestCase):
@@ -441,16 +441,16 @@ class IpNetworkConversion(ConversionTestCase):
 
     def runTest(self):
         self.roundtrip(None)
-        self.both(ipaddress.IPv4Network('0.0.0.0'))
-        self.both(ipaddress.IPv4Network('255.255.255.255'))
-        self.both(ipaddress.IPv4Network('127.0.0.1'))
-        self.both(ipaddress.IPv6Network('::1'))
-        self.both(ipaddress.IPv6Network('2001:db8:85a3::8a2e:370:7334'))
-        self.both(ipaddress.IPv6Network('::ffff:192.0.2.128'))
-        self.both(ipaddress.IPv4Network('10.0.0.0/8'))
-        self.both(ipaddress.IPv4Network('0.0.0.0/0'))
-        self.both(ipaddress.IPv4Network('127.0.0.1/32'))
-        self.both(ipaddress.IPv6Network('::1/128'))
+        self.both(ipaddress.IPv4Network(u'0.0.0.0'))
+        self.both(ipaddress.IPv4Network(u'255.255.255.255'))
+        self.both(ipaddress.IPv4Network(u'127.0.0.1'))
+        self.both(ipaddress.IPv6Network(u'::1'))
+        self.both(ipaddress.IPv6Network(u'2001:db8:85a3::8a2e:370:7334'))
+        self.both(ipaddress.IPv6Network(u'::ffff:192.0.2.128'))
+        self.both(ipaddress.IPv4Network(u'10.0.0.0/8'))
+        self.both(ipaddress.IPv4Network(u'0.0.0.0/0'))
+        self.both(ipaddress.IPv4Network(u'127.0.0.1/32'))
+        self.both(ipaddress.IPv6Network(u'::1/128'))
 
 
 class MxTestConversion(ConversionTestCase):
